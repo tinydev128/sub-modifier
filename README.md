@@ -31,7 +31,7 @@ The script runs three separate services on different ports to accommodate variou
 Run the following command on your server:
 
 ```bash
-curl -Ls https://raw.githubusercontent.com/tinydev128/sub-modifier/main/install.sh | sudo bash
+sudo curl -Ls https://raw.githubusercontent.com/tinydev128/sub-modifier/main/install.sh | sudo bash
 ```
 
 ### During installation, you will be prompted to provide:
