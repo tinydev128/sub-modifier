@@ -32,7 +32,7 @@ The script runs three separate services on different ports to accommodate variou
 2. **Service 2 (Default Port: 5800): SniSpoof ONLY**
    - Strips finalmask and custom ciphers, applies a standard Xray structure.
    - **Path `/json/...`:** Recommended for **V2box**.
-3. **Service 3 (Default Port: 5801): Standard Structure + Finalmask + CipherSuites (NO SniSpoof)**
+3. **Service 3 (Default Port: 5801): Minimal DNS/Routing + Finalmask + CipherSuites (NO SniSpoof)**
    - Acts as a reliable fallback alternative for clients that fail on Service 1's minimal structure.
 
 ## 🛠 Installation
