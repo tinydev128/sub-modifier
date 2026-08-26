@@ -31,4 +31,35 @@ The script runs three separate services on different ports to accommodate variou
 Run the following command on your server:
 
 ```bash
-sudo bash <(curl -Ls [https://raw.githubusercontent.com/tinydev128/sub-modifier/main/install.sh](https://raw.githubusercontent.com/YourUsername/sub-modifier/main/install.sh))
+sudo bash <(curl -Ls https://raw.githubusercontent.com/tinydev128/sub-modifier/main/install.sh)
+```
+
+### During installation, you will be prompted to provide:
+
+🌐Your 3x-ui Panel URL (e.g., https://127.0.0.1:2020).
+
+➿Comma-separated keywords (e.g., CFCDN,CFXCDN,CDN Best).
+
+〰️The SniSpoof IP (e.g., 104.19.230.21).
+
+🌐Paths to your SSL certificate (fullchain.pem) and private key (privkey.pem).
+
+🌐Preferred ports for the three services.
+
+## ⚙️ Management
+Once installed, you can launch the interactive management menu at any time by simply typing:
+
+```bash
+sudo sub-modifier
+```
+
+### The menu allows you to:
+
+Update your configurations (Panel URL, keywords, ports, etc.).
+
+View the client usage guide.
+
+Completely uninstall the tool from your server.
+
+## 📜 License
+This project is licensed under the MIT License. See the LICENSE file for details.
