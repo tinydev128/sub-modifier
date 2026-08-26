@@ -11,8 +11,8 @@ Before using this tool, please keep the following rules in mind to ensure everyt
 
 1. **JSON Subscription Must Be Enabled:** Ensure you have navigated to your 3x-ui panel settings and enabled the **JSON Subscription** feature. The `/json/` paths will not work without it.
 2. **Sub Base URL Binding:** If you input `127.0.0.1` (e.g., `https://127.0.0.1:2020`) as your Sub Base URL during setup, your 3x-ui panel's subscription service must be configured to listen on that exact IP address.
-3. **How to Use the Links:** To provide the modified subscription to your clients, take your original subscription link and replace the port (and path) with the modified ones, OR map them as a reverse proxy directly in the panel.
-   - *Example:* If your original sub is `https://8.8.8.8:2020/sub/MyKey`, you would give your clients `https://8.8.8.8:5000/json/MyKey` (for Port 5000 JSON).
+3. **How to Use the Links:** To provide the modified subscription to your clients, take your original subscription link and replace the port with the modified ones, OR map them as a reverse proxy directly in the panel.
+   - *Example:* If your original JSON sub is `https://8.8.8.8:2020/json/MyKey`, it should become `https://8.8.8.8:5000/json/MyKey` (for Port 5000 JSON).
 
 ## 🚀 Features
 
