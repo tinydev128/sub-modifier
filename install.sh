@@ -3,7 +3,7 @@
 CONFIG_DIR="/opt/sub_server"
 CONFIG_FILE="${CONFIG_DIR}/config.env"
 
-PANEL_URL="https://127.0.0.1:2020"
+SUB_BASE_URL="https://127.0.0.1:2020"
 KEYWORDS="CFCDN,CFXCDN,CDN Best"
 SPOOF_IP="104.19.230.21"
 CERT_PATH="/root/cert/ip/fullchain.pem"
@@ -20,6 +20,10 @@ function show_recommendations() {
     echo -e "\n\e[32m=================================================\e[0m"
     echo -e "\e[32m             CLIENT USAGE GUIDE                  \e[0m"
     echo -e "\e[32m=================================================\e[0m"
+    echo -e "\n\e[31m⚠️ IMPORTANT USAGE NOTE:\e[0m"
+    echo -e "To use these links, replace your original subscription port and path with the ones below."
+    echo -e "Example: If original is '8.8.8.8:2020/sub/...', change it to '8.8.8.8:${PORT1}/json/...' or set it as a reverse proxy in your panel."
+    
     echo -e "\n\e[33m📌 Port ${PORT1} (Path: /sub/...)\e[0m"
     echo -e "   ↳ \e[36mRecommended for: PattNG\e[0m"
     echo -e "\n\e[33m📌 Port ${PORT1} (Path: /json/...)\e[0m"
@@ -37,9 +41,13 @@ function install_update() {
     echo -e "\e[36m              SUB SERVER CONFIGURATION             \e[0m"
     echo -e "\e[36m=================================================\e[0m\n"
     
+    echo -e "\e[31m⚠️ PREREQUISITES:\e[0m"
+    echo -e "1. 'JSON Subscription' MUST be enabled in your 3x-ui panel settings."
+    echo -e "2. If you set Sub Base URL to 127.0.0.1, ensure your panel listens on that IP.\n"
+
     echo -e "\e[33m[ Hint: Press Enter to keep the default value in brackets ]\e[0m\n"
     
-    read -p "Enter Panel URL [$PANEL_URL]: " input </dev/tty; PANEL_URL=${input:-$PANEL_URL}
+    read -p "Enter Sub Base URL [$SUB_BASE_URL]: " input </dev/tty; SUB_BASE_URL=${input:-$SUB_BASE_URL}
     read -p "Enter Target Keywords [$KEYWORDS]: " input </dev/tty; KEYWORDS=${input:-$KEYWORDS}
     read -p "Enter Spoof IP [$SPOOF_IP]: " input </dev/tty; SPOOF_IP=${input:-$SPOOF_IP}
     read -p "Enter SSL Fullchain Path [$CERT_PATH]: " input </dev/tty; CERT_PATH=${input:-$CERT_PATH}
@@ -60,8 +68,8 @@ function install_update() {
     read -p "🔗 Enter port for Service 3 [$PORT3]: " input </dev/tty; PORT3=${input:-$PORT3}
 
     mkdir -p "$CONFIG_DIR"
-    cat <<EOF> "$CONFIG_FILE"
-PANEL_URL="$PANEL_URL"
+    cat <<EOF > "$CONFIG_FILE"
+SUB_BASE_URL="$SUB_BASE_URL"
 KEYWORDS="$KEYWORDS"
 SPOOF_IP="$SPOOF_IP"
 CERT_PATH="$CERT_PATH"
@@ -86,7 +94,7 @@ from flask import Flask, jsonify, request, make_response
 import requests, copy, urllib3, base64, urllib.parse, json
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
-PANEL_URL = "__PANEL_URL__"
+SUB_BASE_URL = "__SUB_BASE_URL__"
 TARGET_KEYWORDS = __TARGET_KEYWORDS__
 CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
 FINALMASK_TCP = [{"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["5", "94", "1"], "delays": ["0"], "maxSplit": "0"}}, {"type": "fragment", "settings": {"packets": "1-1", "lengths": ["109", "1"], "delays": ["1"], "maxSplit": "355"}}]
@@ -111,7 +119,7 @@ def process_json_config(config):
 @app.route('/json/<path:sub_path>')
 def dynamic_json_sub(sub_path):
     try:
-        resp = requests.get(f"{PANEL_URL}/json/{sub_path}?view=raw", verify=False, timeout=10)
+        resp = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", verify=False, timeout=10)
         data = resp.json()
         mod_data = [process_json_config(cfg) for cfg in data] if isinstance(data, list) else process_json_config(data) if isinstance(data, dict) else data
         return jsonify(mod_data)
@@ -130,7 +138,7 @@ def process_uri_config(uri):
 @app.route('/sub/<path:sub_path>')
 def dynamic_uri_sub(sub_path):
     try:
-        resp = requests.get(f"{PANEL_URL}/sub/{sub_path}", headers={"User-Agent": "v2rayN/6.42"}, verify=False, timeout=10)
+        resp = requests.get(f"{SUB_BASE_URL}/sub/{sub_path}", headers={"User-Agent": "v2rayN/6.42"}, verify=False, timeout=10)
         raw = resp.text.strip()
         raw += '=' * (-len(raw) % 4)
         try: dec = base64.b64decode(raw).decode('utf-8')
@@ -147,7 +155,7 @@ from flask import Flask, jsonify, request
 import requests, copy, urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
-PANEL_URL = "__PANEL_URL__"
+SUB_BASE_URL = "__SUB_BASE_URL__"
 TARGET_KEYWORDS = __TARGET_KEYWORDS__
 SPOOF_IP = "__SPOOF_IP__"
 ADV_DNS = {"hosts": {"domain:googleapis.cn": "googleapis.com", "dns.alidns.com": ["223.5.5.5", "223.6.6.6", "2400:3200::1", "2400:3200:baba::1"], "one.one.one.one": ["1.1.1.1", "1.0.0.1", "2606:4700:4700::1111", "2606:4700:4700::1001"], "dns.cloudflare.com": ["104.16.132.229", "104.16.133.229", "2606:4700::6810:84e5", "2606:4700::6810:85e5"], "cloudflare-dns.com": ["104.16.248.249", "104.16.249.249", "2606:4700::6810:f8f9", "2606:4700::6810:f9f9"], "dot.pub": ["1.12.12.12", "120.53.53.53"], "dns.google": ["8.8.8.8", "8.8.4.4", "2001:4860:4860::8888", "2001:4860:4860::8844"], "dns.quad9.net": ["9.9.9.9", "149.112.112.112", "2620:fe::fe", "2620:fe::9"], "common.dot.dns.yandex.net": ["77.88.8.8", "77.88.8.1", "2a02:6b8::feed:0ff", "2a02:6b8:0:1::feed:0ff"]}, "servers": ["1.1.1.1", {"address": "223.5.5.5", "domains": [], "skipFallback": True, "tag": "domestic-dns0"}], "tag": "dns-module"}
@@ -178,7 +186,7 @@ def process_cfg(cfg):
 @app.route('/json/<path:sub_path>')
 def dyn(sub_path):
     try:
-        data = requests.get(f"{PANEL_URL}/json/{sub_path}?view=raw", verify=False, timeout=10).json()
+        data = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", verify=False, timeout=10).json()
         mod = [process_cfg(c) for c in data] if isinstance(data, list) else process_cfg(data) if isinstance(data, dict) else data
         return jsonify(mod)
     except Exception as e: return jsonify({"error": str(e)}), 500
@@ -189,7 +197,7 @@ from flask import Flask, jsonify, request
 import requests, copy, urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
-PANEL_URL = "__PANEL_URL__"
+SUB_BASE_URL = "__SUB_BASE_URL__"
 TARGET_KEYWORDS = __TARGET_KEYWORDS__
 CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
 FINALMASK_TCP = [{"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["5", "94", "1"], "delays": ["0"], "maxSplit": "0"}}, {"type": "fragment", "settings": {"packets": "1-1", "lengths": ["109", "1"], "delays": ["1"], "maxSplit": "355"}}]
@@ -205,10 +213,7 @@ def process_cfg(cfg):
             out["mux"] = {"concurrency": -1, "enabled": False}
             old = out.get("settings", {})
             if "address" in old: out["settings"] = {"vnext": [{"address": old.get("address"), "port": old.get("port"), "users": [{"encryption": old.get("encryption", "none"), "flow": old.get("flow", ""), "id": old.get("id"), "level": old.get("level", 8)}]}]}
-            
-            # Remove SniSpoof completely (no injection)
             out.pop("sniSpoof", None)
-            
             st = out.get("streamSettings", {})
             st["finalmask"] = {"tcp": FINALMASK_TCP}
             if "tlsSettings" in st:
@@ -223,14 +228,14 @@ def process_cfg(cfg):
 @app.route('/json/<path:sub_path>')
 def dyn(sub_path):
     try:
-        data = requests.get(f"{PANEL_URL}/json/{sub_path}?view=raw", verify=False, timeout=10).json()
+        data = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", verify=False, timeout=10).json()
         mod = [process_cfg(c) for c in data] if isinstance(data, list) else process_cfg(data) if isinstance(data, dict) else data
         return jsonify(mod)
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
     for f in app_1.py app_2.py app_3.py; do
-        sed -i "s|__PANEL_URL__|${PANEL_URL}|g" /opt/sub_server/$f
+        sed -i "s|__SUB_BASE_URL__|${SUB_BASE_URL}|g" /opt/sub_server/$f
         sed -i "s|__TARGET_KEYWORDS__|${TARGET_PY}|g" /opt/sub_server/$f
         sed -i "s|__SPOOF_IP__|${SPOOF_IP}|g" /opt/sub_server/$f
     done
