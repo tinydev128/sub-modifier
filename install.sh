@@ -21,8 +21,10 @@ function show_recommendations() {
     echo -e "\e[32m             CLIENT USAGE GUIDE                  \e[0m"
     echo -e "\e[32m=================================================\e[0m"
     echo -e "\n\e[31m⚠️ IMPORTANT USAGE NOTE:\e[0m"
-    echo -e "To use these links, replace your original subscription port and path with the ones below."
-    echo -e "Example: If original is '8.8.8.8:2020/sub/...', change it to '8.8.8.8:${PORT1}/json/...' or set it as a reverse proxy in your panel."
+    echo -e "To use these links, replace your original subscription port with the ones below."
+    echo -e "Example: If your original JSON sub is '8.8.8.8:2020/json/...',"
+    echo -e "it should become '8.8.8.8:${PORT1}/json/...' (for Service 1)."
+    echo -e "Alternatively, you can set these as a reverse proxy in your panel."
     
     echo -e "\n\e[33m📌 Port ${PORT1} (Path: /sub/...)\e[0m"
     echo -e "   ↳ \e[36mRecommended for: PattNG\e[0m"
