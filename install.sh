@@ -33,7 +33,7 @@ function show_recommendations() {
     echo -e "\n\e[33m📌 Port ${PORT2} (Path: /json/...)\e[0m"
     echo -e "   ↳ \e[36mSniSpoof ONLY - Recommended for V2box\e[0m"
     echo -e "\n\e[33m📌 Port ${PORT3} (Path: /json/...)\e[0m"
-    echo -e "   ↳ \e[36mFallback (Standard Structure + FM/CS) for clients failing on Port ${PORT1}\e[0m"
+    echo -e "   ↳ \e[36mFallback (Strict Xray Structure + FM/CS) for clients failing on Port ${PORT1}\e[0m"
     echo -e "\n\e[32m=================================================\e[0m\n"
 }
 
@@ -57,16 +57,16 @@ function install_update() {
 
     echo -e "\n\e[36m================ PORT CONFIGURATION ================\e[0m"
     
-    echo -e "\n\e[32mService 1:\e[0m Minimal Structure + Finalmask + CipherSuites"
+    echo -e "\n\e[32mService 1:\e[0m Minimal DNS/Routing + Finalmask + CipherSuites"
     echo -e " 💡 \e[90m(Path /sub/ recommended for PattNG, /json/ for v2rayN/v2rayNG)\e[0m"
     read -p "🔗 Enter port for Service 1 [$PORT1]: " input </dev/tty; PORT1=${input:-$PORT1}
 
-    echo -e "\n\e[32mService 2:\e[0m SniSpoof ONLY (No fragment/ciphers, standard structure)"
+    echo -e "\n\e[32mService 2:\e[0m Minimal DNS/Routing + SniSpoof ONLY (No fragment/ciphers)"
     echo -e " 💡 \e[90m(Path /json/ recommended for V2box)\e[0m"
     read -p "🔗 Enter port for Service 2 [$PORT2]: " input </dev/tty; PORT2=${input:-$PORT2}
 
-    echo -e "\n\e[32mService 3:\e[0m Standard Structure + Finalmask + CipherSuites (NO SniSpoof)"
-    echo -e " 💡 \e[90m(Fallback option for clients that fail on Service 1)\e[0m"
+    echo -e "\n\e[32mService 3:\e[0m Minimal DNS/Routing + Strict Xray Format + Finalmask + CipherSuites (NO SniSpoof)"
+    echo -e " 💡 \e[90m(Fallback option for strict clients that fail on Service 1)\e[0m"
     read -p "🔗 Enter port for Service 3 [$PORT3]: " input </dev/tty; PORT3=${input:-$PORT3}
 
     mkdir -p "$CONFIG_DIR"
@@ -91,6 +91,7 @@ EOF
     FORMATTED_KEYWORDS=$(echo "$KEYWORDS" | sed 's/,/","/g')
     TARGET_PY="[\"$FORMATTED_KEYWORDS\"]"
 
+    # ================== SERVICE 1 (MINIMAL + FM + CS) ==================
     cat << 'EOF' > /opt/sub_server/app_1.py
 from flask import Flask, jsonify, request, make_response
 import requests, copy, urllib3, base64, urllib.parse, json
@@ -152,6 +153,7 @@ def dynamic_uri_sub(sub_path):
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
+    # ================== SERVICE 2 (MINIMAL + SNISPOOF ONLY) ==================
     cat << 'EOF' > /opt/sub_server/app_2.py
 from flask import Flask, jsonify, request
 import requests, copy, urllib3
@@ -160,12 +162,14 @@ app = Flask(__name__)
 SUB_BASE_URL = "__SUB_BASE_URL__"
 TARGET_KEYWORDS = __TARGET_KEYWORDS__
 SPOOF_IP = "__SPOOF_IP__"
-ADV_DNS = {"hosts": {"domain:googleapis.cn": "googleapis.com", "dns.alidns.com": ["223.5.5.5", "223.6.6.6", "2400:3200::1", "2400:3200:baba::1"], "one.one.one.one": ["1.1.1.1", "1.0.0.1", "2606:4700:4700::1111", "2606:4700:4700::1001"], "dns.cloudflare.com": ["104.16.132.229", "104.16.133.229", "2606:4700::6810:84e5", "2606:4700::6810:85e5"], "cloudflare-dns.com": ["104.16.248.249", "104.16.249.249", "2606:4700::6810:f8f9", "2606:4700::6810:f9f9"], "dot.pub": ["1.12.12.12", "120.53.53.53"], "dns.google": ["8.8.8.8", "8.8.4.4", "2001:4860:4860::8888", "2001:4860:4860::8844"], "dns.quad9.net": ["9.9.9.9", "149.112.112.112", "2620:fe::fe", "2620:fe::9"], "common.dot.dns.yandex.net": ["77.88.8.8", "77.88.8.1", "2a02:6b8::feed:0ff", "2a02:6b8:0:1::feed:0ff"]}, "servers": ["1.1.1.1", {"address": "223.5.5.5", "domains": [], "skipFallback": True, "tag": "domestic-dns0"}], "tag": "dns-module"}
-ADV_INB = [{"listen": "127.0.0.1", "port": 10808, "protocol": "socks", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls"], "enabled": True, "routeOnly": False}, "tag": "socks"}]
-ADV_ROUT = {"domainStrategy": "AsIs", "rules": [{"ip": ["8.8.8.8"], "outboundTag": "direct", "port": "53", "type": "field"}, {"ip": ["1.1.1.1"], "outboundTag": "proxy", "port": "53", "type": "field"}, {"ip": ["223.5.5.5"], "outboundTag": "direct", "port": "53", "type": "field"}]}
+MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
+MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
+MINIMAL_ROUTING_PROXY = {"domainStrategy": "AsIs", "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]}
 def process_cfg(cfg):
     if not any(k in cfg.get("remarks", "") for k in TARGET_KEYWORDS): return cfg
-    cfg["dns"] = copy.deepcopy(ADV_DNS); cfg["routing"] = copy.deepcopy(ADV_ROUT); cfg["inbounds"] = copy.deepcopy(ADV_INB)
+    cfg["dns"] = copy.deepcopy(MINIMAL_DNS)
+    cfg["inbounds"] = copy.deepcopy(MINIMAL_INBOUNDS)
+    if "balancers" not in cfg.get("routing", {}): cfg["routing"] = copy.deepcopy(MINIMAL_ROUTING_PROXY)
     for out in cfg.get("outbounds", []):
         tag = out.get("tag", "")
         if tag == "proxy" or tag.startswith("bal-"):
@@ -194,6 +198,7 @@ def dyn(sub_path):
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
+    # ================== SERVICE 3 (MINIMAL + STRICT XRAY + FM + CS) ==================
     cat << 'EOF' > /opt/sub_server/app_3.py
 from flask import Flask, jsonify, request
 import requests, copy, urllib3
@@ -203,19 +208,23 @@ SUB_BASE_URL = "__SUB_BASE_URL__"
 TARGET_KEYWORDS = __TARGET_KEYWORDS__
 CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
 FINALMASK_TCP = [{"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["5", "94", "1"], "delays": ["0"], "maxSplit": "0"}}, {"type": "fragment", "settings": {"packets": "1-1", "lengths": ["109", "1"], "delays": ["1"], "maxSplit": "355"}}]
-ADV_DNS = {"hosts": {"domain:googleapis.cn": "googleapis.com", "dns.alidns.com": ["223.5.5.5", "223.6.6.6", "2400:3200::1", "2400:3200:baba::1"], "one.one.one.one": ["1.1.1.1", "1.0.0.1", "2606:4700:4700::1111", "2606:4700:4700::1001"], "dns.cloudflare.com": ["104.16.132.229", "104.16.133.229", "2606:4700::6810:84e5", "2606:4700::6810:85e5"], "cloudflare-dns.com": ["104.16.248.249", "104.16.249.249", "2606:4700::6810:f8f9", "2606:4700::6810:f9f9"], "dot.pub": ["1.12.12.12", "120.53.53.53"], "dns.google": ["8.8.8.8", "8.8.4.4", "2001:4860:4860::8888", "2001:4860:4860::8844"], "dns.quad9.net": ["9.9.9.9", "149.112.112.112", "2620:fe::fe", "2620:fe::9"], "common.dot.dns.yandex.net": ["77.88.8.8", "77.88.8.1", "2a02:6b8::feed:0ff", "2a02:6b8:0:1::feed:0ff"]}, "servers": ["1.1.1.1", {"address": "223.5.5.5", "domains": [], "skipFallback": True, "tag": "domestic-dns0"}], "tag": "dns-module"}
-ADV_INB = [{"listen": "127.0.0.1", "port": 10808, "protocol": "socks", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls"], "enabled": True, "routeOnly": False}, "tag": "socks"}]
-ADV_ROUT = {"domainStrategy": "AsIs", "rules": [{"ip": ["8.8.8.8"], "outboundTag": "direct", "port": "53", "type": "field"}, {"ip": ["1.1.1.1"], "outboundTag": "proxy", "port": "53", "type": "field"}, {"ip": ["223.5.5.5"], "outboundTag": "direct", "port": "53", "type": "field"}]}
+MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
+MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
+MINIMAL_ROUTING_PROXY = {"domainStrategy": "AsIs", "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]}
 def process_cfg(cfg):
     if not any(k in cfg.get("remarks", "") for k in TARGET_KEYWORDS): return cfg
-    cfg["dns"] = copy.deepcopy(ADV_DNS); cfg["routing"] = copy.deepcopy(ADV_ROUT); cfg["inbounds"] = copy.deepcopy(ADV_INB)
+    cfg["dns"] = copy.deepcopy(MINIMAL_DNS)
+    cfg["inbounds"] = copy.deepcopy(MINIMAL_INBOUNDS)
+    if "balancers" not in cfg.get("routing", {}): cfg["routing"] = copy.deepcopy(MINIMAL_ROUTING_PROXY)
     for out in cfg.get("outbounds", []):
         tag = out.get("tag", "")
         if tag == "proxy" or tag.startswith("bal-"):
             out["mux"] = {"concurrency": -1, "enabled": False}
             old = out.get("settings", {})
             if "address" in old: out["settings"] = {"vnext": [{"address": old.get("address"), "port": old.get("port"), "users": [{"encryption": old.get("encryption", "none"), "flow": old.get("flow", ""), "id": old.get("id"), "level": old.get("level", 8)}]}]}
+            
             out.pop("sniSpoof", None)
+            
             st = out.get("streamSettings", {})
             st["finalmask"] = {"tcp": FINALMASK_TCP}
             if "tlsSettings" in st:
@@ -313,7 +322,6 @@ function main_menu() {
         *) echo "Invalid option!"; sleep 1; main_menu ;;
     esac
 }
-
 
 if [ ! -f "$CONFIG_FILE" ]; then
     install_update
