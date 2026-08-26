@@ -31,4 +31,4 @@ The script runs three separate services on different ports to accommodate variou
 Run the following command on your server:
 
 ```bash
-sudo bash <(curl -Ls [https://raw.githubusercontent.com/YourUsername/sub-modifier/main/install.sh](https://raw.githubusercontent.com/YourUsername/sub-modifier/main/install.sh))
+sudo bash <(curl -Ls [https://raw.githubusercontent.com/tinydev128/sub-modifier/main/install.sh](https://raw.githubusercontent.com/YourUsername/sub-modifier/main/install.sh))
