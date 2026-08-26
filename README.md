@@ -31,7 +31,7 @@ The script runs three separate services on different ports to accommodate variou
 Run the following command on your server:
 
 ```bash
-sudo bash <(curl -Ls https://raw.githubusercontent.com/tinydev128/sub-modifier/main/install.sh)
+curl -Ls https://raw.githubusercontent.com/tinydev128/sub-modifier/main/install.sh | sudo bash
 ```
 
 ### During installation, you will be prompted to provide:
@@ -55,11 +55,11 @@ sudo sub-modifier
 
 ### The menu allows you to:
 
-Update your configurations (Panel URL, keywords, ports, etc.).
+🔘Update your configurations (Panel URL, keywords, ports, etc.).
 
-View the client usage guide.
+🔘View the client usage guide.
 
-Completely uninstall the tool from your server.
+❌Completely uninstall the tool from your server.
 
 ## 📜 License
 This project is licensed under the MIT License. See the LICENSE file for details.
