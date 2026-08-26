@@ -39,28 +39,28 @@ function install_update() {
     
     echo -e "\e[33m[ Hint: Press Enter to keep the default value in brackets ]\e[0m\n"
     
-    read -p "Enter Panel URL [$PANEL_URL]: " input; PANEL_URL=${input:-$PANEL_URL}
-    read -p "Enter Target Keywords [$KEYWORDS]: " input; KEYWORDS=${input:-$KEYWORDS}
-    read -p "Enter Spoof IP [$SPOOF_IP]: " input; SPOOF_IP=${input:-$SPOOF_IP}
-    read -p "Enter SSL Fullchain Path [$CERT_PATH]: " input; CERT_PATH=${input:-$CERT_PATH}
-    read -p "Enter SSL Privkey Path [$KEY_PATH]: " input; KEY_PATH=${input:-$KEY_PATH}
+    read -p "Enter Panel URL [$PANEL_URL]: " input </dev/tty; PANEL_URL=${input:-$PANEL_URL}
+    read -p "Enter Target Keywords [$KEYWORDS]: " input </dev/tty; KEYWORDS=${input:-$KEYWORDS}
+    read -p "Enter Spoof IP [$SPOOF_IP]: " input </dev/tty; SPOOF_IP=${input:-$SPOOF_IP}
+    read -p "Enter SSL Fullchain Path [$CERT_PATH]: " input </dev/tty; CERT_PATH=${input:-$CERT_PATH}
+    read -p "Enter SSL Privkey Path [$KEY_PATH]: " input </dev/tty; KEY_PATH=${input:-$KEY_PATH}
 
     echo -e "\n\e[36m================ PORT CONFIGURATION ================\e[0m"
     
     echo -e "\n\e[32mService 1:\e[0m Minimal Structure + Finalmask + CipherSuites"
     echo -e " 💡 \e[90m(Path /sub/ recommended for PattNG, /json/ for v2rayN/v2rayNG)\e[0m"
-    read -p "🔗 Enter port for Service 1 [$PORT1]: " input; PORT1=${input:-$PORT1}
+    read -p "🔗 Enter port for Service 1 [$PORT1]: " input </dev/tty; PORT1=${input:-$PORT1}
 
     echo -e "\n\e[32mService 2:\e[0m SniSpoof ONLY (No fragment/ciphers, standard structure)"
     echo -e " 💡 \e[90m(Path /json/ recommended for V2box)\e[0m"
-    read -p "🔗 Enter port for Service 2 [$PORT2]: " input; PORT2=${input:-$PORT2}
+    read -p "🔗 Enter port for Service 2 [$PORT2]: " input </dev/tty; PORT2=${input:-$PORT2}
 
     echo -e "\n\e[32mService 3:\e[0m Standard Structure + Finalmask + CipherSuites (NO SniSpoof)"
     echo -e " 💡 \e[90m(Fallback option for clients that fail on Service 1)\e[0m"
-    read -p "🔗 Enter port for Service 3 [$PORT3]: " input; PORT3=${input:-$PORT3}
+    read -p "🔗 Enter port for Service 3 [$PORT3]: " input </dev/tty; PORT3=${input:-$PORT3}
 
     mkdir -p "$CONFIG_DIR"
-    cat <<EOF > "$CONFIG_FILE"
+    cat <<EOF> "$CONFIG_FILE"
 PANEL_URL="$PANEL_URL"
 KEYWORDS="$KEYWORDS"
 SPOOF_IP="$SPOOF_IP"
@@ -262,7 +262,7 @@ EOF
 
     echo -e "\n\e[32m[✔] Installation / Update Completed Successfully!\e[0m"
     show_recommendations
-    read -p "Press Enter to return to menu..."
+    read -p "Press Enter to return to menu..." </dev/tty
     main_menu
 }
 
@@ -271,9 +271,9 @@ function uninstall() {
     echo -e "\e[31m=================================================\e[0m"
     echo -e "\e[31m            COMPLETE UNINSTALLATION              \e[0m"
     echo -e "\e[31m=================================================\e[0m"
-    read -p "Are you sure you want to completely remove this tool? (y/n): " confirm
+    read -p "Are you sure you want to completely remove this tool? (y/n): " confirm </dev/tty
     if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
-        systemctl stop subserver${PORT1} subserver${PORT2} subserver${PORT3} >/dev/null 2>&1
+        systemctl stop subserver${PORT1} subserver${PORT2} subserver${PORT3}>/dev/null 2>&1
         systemctl disable subserver${PORT1} subserver${PORT2} subserver${PORT3} >/dev/null 2>&1
         rm -f /etc/systemd/system/subserver*.service
         rm -rf /opt/sub_server
@@ -296,11 +296,11 @@ function main_menu() {
     echo "  3) 🗑️  Uninstall Completely"
     echo "  0) ❌ Exit"
     echo -e "\e[36m=================================================\e[0m"
-    read -p "Select an option [0-3]: " option
+    read -p "Select an option [0-3]: " option </dev/tty
 
     case $option in
         1) install_update ;;
-        2) show_recommendations; read -p "Press Enter to return..." ; main_menu ;;
+        2) show_recommendations; read -p "Press Enter to return..." </dev/tty ; main_menu ;;
         3) uninstall ;;
         0) exit 0 ;;
         *) echo "Invalid option!"; sleep 1; main_menu ;;
