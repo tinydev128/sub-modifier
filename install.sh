@@ -312,10 +312,6 @@ function main_menu() {
     esac
 }
 
-if [[ "$(realpath $0)" != "/usr/local/bin/sub-modifier" ]]; then
-    cp "$0" /usr/local/bin/sub-modifier 2>/dev/null || cat "$0" > /usr/local/bin/sub-modifier
-    chmod +x /usr/local/bin/sub-modifier
-fi
 
 if [ ! -f "$CONFIG_FILE" ]; then
     install_update
