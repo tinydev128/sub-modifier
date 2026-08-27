@@ -11,6 +11,7 @@ KEY_PATH="/root/cert/ip/privkey.pem"
 PORT1="5000"
 PORT2="5800"
 PORT3="5801"
+PORT4="5802"
 
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
@@ -34,6 +35,8 @@ function show_recommendations() {
     echo -e "   ↳ \e[36mSniSpoof ONLY - Recommended for V2box\e[0m"
     echo -e "\n\e[33m📌 Port ${PORT3} (Path: /json/...)\e[0m"
     echo -e "   ↳ \e[36mFallback (Strict Xray Structure + FM/CS) for clients failing on Port ${PORT1}\e[0m"
+    echo -e "\n\e[33m📌 Port ${PORT4} (Path: /json/... ONLY)\e[0m"
+    echo -e "   ↳ \e[36mNPV Tunnel Optimized (FM/CS + standard fragment fallback to prevent LengthMin error)\e[0m"
     echo -e "\n\e[32m=================================================\e[0m\n"
 }
 
@@ -69,6 +72,10 @@ function install_update() {
     echo -e " 💡 \e[90m(Fallback option for strict clients that fail on Service 1)\e[0m"
     read -p "🔗 Enter port for Service 3 [$PORT3]: " input </dev/tty; PORT3=${input:-$PORT3}
 
+    echo -e "\n\e[32mService 4:\e[0m NPV Tunnel Optimized (Finalmask + CipherSuites + Sockopt Fragment Fallback)"
+    echo -e " 💡 \e[90m(Specifically designed to bypass the 'LengthMin can't be 0' error in NPV Tunnel)\e[0m"
+    read -p "🔗 Enter port for Service 4 [$PORT4]: " input </dev/tty; PORT4=${input:-$PORT4}
+
     mkdir -p "$CONFIG_DIR"
     cat <<EOF > "$CONFIG_FILE"
 SUB_BASE_URL="$SUB_BASE_URL"
@@ -79,6 +86,7 @@ KEY_PATH="$KEY_PATH"
 PORT1="$PORT1"
 PORT2="$PORT2"
 PORT3="$PORT3"
+PORT4="$PORT4"
 EOF
 
     echo -e "\n\e[33m[+] Installing Dependencies...\e[0m"
@@ -245,14 +253,65 @@ def dyn(sub_path):
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
-    for f in app_1.py app_2.py app_3.py; do
+    # ================== SERVICE 4 (NPV TUNNEL OPTIMIZED - JSON ONLY) ==================
+    cat << 'EOF' > /opt/sub_server/app_4.py
+from flask import Flask, jsonify, request
+import requests, copy, urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+app = Flask(__name__)
+SUB_BASE_URL = "__SUB_BASE_URL__"
+TARGET_KEYWORDS = __TARGET_KEYWORDS__
+CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
+FINALMASK_TCP = [{"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["5", "94", "1"], "delays": ["0"], "maxSplit": "0"}}, {"type": "fragment", "settings": {"packets": "1-1", "lengths": ["109", "1"], "delays": ["1"], "maxSplit": "355"}}]
+MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
+MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
+MINIMAL_ROUTING_PROXY = {"domainStrategy": "AsIs", "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]}
+def process_cfg(cfg):
+    if not any(k in cfg.get("remarks", "") for k in TARGET_KEYWORDS): return cfg
+    cfg["dns"] = copy.deepcopy(MINIMAL_DNS)
+    cfg["inbounds"] = copy.deepcopy(MINIMAL_INBOUNDS)
+    if "balancers" not in cfg.get("routing", {}): cfg["routing"] = copy.deepcopy(MINIMAL_ROUTING_PROXY)
+    for out in cfg.get("outbounds", []):
+        tag = out.get("tag", "")
+        if tag == "proxy" or tag.startswith("bal-"):
+            out["mux"] = {"concurrency": -1, "enabled": False}
+            old = out.get("settings", {})
+            if "address" in old: out["settings"] = {"vnext": [{"address": old.get("address"), "port": old.get("port"), "users": [{"encryption": old.get("encryption", "none"), "flow": old.get("flow", ""), "id": old.get("id"), "level": old.get("level", 8)}]}]}
+            
+            out.pop("sniSpoof", None)
+            
+            st = out.get("streamSettings", {})
+            st["finalmask"] = {"tcp": FINALMASK_TCP}
+            # Inject standard fragment to prevent LengthMin=0 error in NPV Tunnel
+            st["sockopt"] = {"fragment": {"packets": "tlshello", "length": "100-200", "interval": "10-20"}}
+            if "tlsSettings" in st:
+                st["tlsSettings"].pop("alpn", None)
+                st["tlsSettings"].update({"cipherSuites": CIPHER_SUITES, "allowInsecure": False, "show": False, "fingerprint": "unsafe"})
+            if "wsSettings" in st:
+                h = st["wsSettings"].pop("host", None); st["wsSettings"].pop("heartbeatPeriod", None)
+                st["wsSettings"]["headers"] = {"Host": h} if h else {}
+            out["streamSettings"] = st
+        elif tag == "direct": out["settings"] = {"domainStrategy": "UseIP"}
+    return cfg
+@app.route('/json/<path:sub_path>')
+def dyn(sub_path):
+    try:
+        data = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", verify=False, timeout=10).json()
+        mod = [process_cfg(c) for c in data] if isinstance(data, list) else process_cfg(data) if isinstance(data, dict) else data
+        return jsonify(mod)
+    except Exception as e: return jsonify({"error": str(e)}), 500
+EOF
+
+    # Replace variables in all apps
+    for f in app_1.py app_2.py app_3.py app_4.py; do
         sed -i "s|__SUB_BASE_URL__|${SUB_BASE_URL}|g" /opt/sub_server/$f
         sed -i "s|__TARGET_KEYWORDS__|${TARGET_PY}|g" /opt/sub_server/$f
         sed -i "s|__SPOOF_IP__|${SPOOF_IP}|g" /opt/sub_server/$f
     done
 
-    for PORT in $PORT1 $PORT2 $PORT3; do
-        if [ "$PORT" == "$PORT1" ]; then APP_NAME="app_1"; elif [ "$PORT" == "$PORT2" ]; then APP_NAME="app_2"; else APP_NAME="app_3"; fi
+    # Create and start services
+    for PORT in $PORT1 $PORT2 $PORT3 $PORT4; do
+        if [ "$PORT" == "$PORT1" ]; then APP_NAME="app_1"; elif [ "$PORT" == "$PORT2" ]; then APP_NAME="app_2"; elif [ "$PORT" == "$PORT3" ]; then APP_NAME="app_3"; else APP_NAME="app_4"; fi
         cat << EOF > /etc/systemd/system/subserver${PORT}.service
 [Unit]
 Description=Custom Sub Server (Port ${PORT})
@@ -273,8 +332,8 @@ EOF
 
     echo -e "\e[33m[+] Starting Services...\e[0m"
     systemctl daemon-reload
-    systemctl enable --now subserver${PORT1} subserver${PORT2} subserver${PORT3} >/dev/null 2>&1
-    systemctl restart subserver${PORT1} subserver${PORT2} subserver${PORT3} >/dev/null 2>&1
+    systemctl enable --now subserver${PORT1} subserver${PORT2} subserver${PORT3} subserver${PORT4} >/dev/null 2>&1
+    systemctl restart subserver${PORT1} subserver${PORT2} subserver${PORT3} subserver${PORT4} >/dev/null 2>&1
 
     echo -e "\n\e[32m[✔] Installation / Update Completed Successfully!\e[0m"
     show_recommendations
@@ -289,8 +348,8 @@ function uninstall() {
     echo -e "\e[31m=================================================\e[0m"
     read -p "Are you sure you want to completely remove this tool? (y/n): " confirm </dev/tty
     if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
-        systemctl stop subserver${PORT1} subserver${PORT2} subserver${PORT3}>/dev/null 2>&1
-        systemctl disable subserver${PORT1} subserver${PORT2} subserver${PORT3} >/dev/null 2>&1
+        systemctl stop subserver${PORT1} subserver${PORT2} subserver${PORT3} subserver${PORT4} >/dev/null 2>&1
+        systemctl disable subserver${PORT1} subserver${PORT2} subserver${PORT3} subserver${PORT4} >/dev/null 2>&1
         rm -f /etc/systemd/system/subserver*.service
         rm -rf /opt/sub_server
         rm -f /usr/local/bin/sub-modifier
