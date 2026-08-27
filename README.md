@@ -24,17 +24,20 @@ Before using this tool, please keep the following rules in mind to ensure everyt
 
 ## 📦 Services Deployed
 
-The script runs three separate services on different ports to accommodate various client applications:
+The script runs four separate services on different ports to accommodate various client applications:
 
 1. **Service 1 (Default Port: 5000): Minimal Structure + Finalmask + CipherSuites**
    - **Path `/sub/...`:** Recommended for **PattNG**.
    - **Path `/json/...`:** Recommended for **v2rayN / v2rayNG**.
 2. **Service 2 (Default Port: 5800): SniSpoof ONLY**
-   - Strips finalmask and custom ciphers, applies a standard Xray structure.
+   - Strips finalmask and custom ciphers, applies a minimal Xray structure.
    - **Path `/json/...`:** Recommended for **V2box**.
-3. **Service 3 (Default Port: 5801): Minimal DNS/Routing + Finalmask + CipherSuites (NO SniSpoof)**
-   - Acts as a reliable fallback alternative for clients that fail on Service 1's minimal structure.
-
+3. **Service 3 (Default Port: 5801): Strict Xray Structure + Finalmask + CipherSuites (NO SniSpoof)**
+   - Acts as a reliable fallback alternative for clients that fail on Service 1.
+4. **Service 4 (Default Port: 5802): NPV Tunnel Optimized (FM + CS + Sockopt Fallback)**
+   - Specifically injects standard fragment boundaries (`sockopt`) alongside `finalmask` to prevent the `infra/conf: LengthMin can't be 0` core rejection bug in NPV Tunnel.
+   - **Path `/json/...` ONLY:** Standard URI (`/sub/`) is strictly disabled on this port as it cannot properly transmit complex fallback arguments.
+  
 ## 🛠 Installation
 
 Run the following command on your server:
