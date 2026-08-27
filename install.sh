@@ -36,7 +36,7 @@ function show_recommendations() {
     echo -e "\n\e[33m📌 Port ${PORT3} (Path: /json/...)\e[0m"
     echo -e "   ↳ \e[36mFallback (Strict Xray Structure + FM/CS) for clients failing on Port ${PORT1}\e[0m"
     echo -e "\n\e[33m📌 Port ${PORT4} (Path: /json/... ONLY)\e[0m"
-    echo -e "   ↳ \e[36mNPV Tunnel Optimized (FM/CS + standard fragment fallback to prevent LengthMin error)\e[0m"
+    echo -e "   ↳ \e[36mNPV Tunnel Optimized (Hybrid Finalmask + CipherSuites)\e[0m"
     echo -e "\n\e[32m=================================================\e[0m\n"
 }
 
@@ -72,7 +72,7 @@ function install_update() {
     echo -e " 💡 \e[90m(Fallback option for strict clients that fail on Service 1)\e[0m"
     read -p "🔗 Enter port for Service 3 [$PORT3]: " input </dev/tty; PORT3=${input:-$PORT3}
 
-    echo -e "\n\e[32mService 4:\e[0m NPV Tunnel Optimized (Finalmask + CipherSuites + Sockopt Fragment Fallback)"
+    echo -e "\n\e[32mService 4:\e[0m NPV Tunnel Optimized (Hybrid Finalmask + CipherSuites)"
     echo -e " 💡 \e[90m(Specifically designed to bypass the 'LengthMin can't be 0' error in NPV Tunnel)\e[0m"
     read -p "🔗 Enter port for Service 4 [$PORT4]: " input </dev/tty; PORT4=${input:-$PORT4}
 
@@ -253,7 +253,7 @@ def dyn(sub_path):
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
-    # ================== SERVICE 4 (NPV TUNNEL OPTIMIZED - JSON ONLY) ==================
+    # ================== SERVICE 4 (NPV TUNNEL HYBRID FINALMASK) ==================
     cat << 'EOF' > /opt/sub_server/app_4.py
 from flask import Flask, jsonify, request
 import requests, copy, urllib3
@@ -262,10 +262,17 @@ app = Flask(__name__)
 SUB_BASE_URL = "__SUB_BASE_URL__"
 TARGET_KEYWORDS = __TARGET_KEYWORDS__
 CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
-FINALMASK_TCP = [{"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["5", "94", "1"], "delays": ["0"], "maxSplit": "0"}}, {"type": "fragment", "settings": {"packets": "1-1", "lengths": ["109", "1"], "delays": ["1"], "maxSplit": "355"}}]
+
+# Hybrid Finalmask: Includes both 'lengths' (arrays) and 'length' (strings) to satisfy strict parsers like NPV Tunnel
+FINALMASK_TCP_HYBRID = [
+    {"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["5", "94", "1"], "delays": ["0"], "maxSplit": "0", "length": "100-200", "interval": "10-20"}}, 
+    {"type": "fragment", "settings": {"packets": "1-1", "lengths": ["109", "1"], "delays": ["1"], "maxSplit": "355", "length": "10-20", "interval": "10-20"}}
+]
+
 MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
 MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
 MINIMAL_ROUTING_PROXY = {"domainStrategy": "AsIs", "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]}
+
 def process_cfg(cfg):
     if not any(k in cfg.get("remarks", "") for k in TARGET_KEYWORDS): return cfg
     cfg["dns"] = copy.deepcopy(MINIMAL_DNS)
@@ -281,9 +288,8 @@ def process_cfg(cfg):
             out.pop("sniSpoof", None)
             
             st = out.get("streamSettings", {})
-            st["finalmask"] = {"tcp": FINALMASK_TCP}
-            # Inject standard fragment to prevent LengthMin=0 error in NPV Tunnel
-            st["sockopt"] = {"fragment": {"packets": "tlshello", "length": "100-200", "interval": "10-20"}}
+            # Inject Hybrid Finalmask for NPV Tunnel
+            st["finalmask"] = {"tcp": FINALMASK_TCP_HYBRID}
             if "tlsSettings" in st:
                 st["tlsSettings"].pop("alpn", None)
                 st["tlsSettings"].update({"cipherSuites": CIPHER_SUITES, "allowInsecure": False, "show": False, "fingerprint": "unsafe"})
@@ -293,6 +299,7 @@ def process_cfg(cfg):
             out["streamSettings"] = st
         elif tag == "direct": out["settings"] = {"domainStrategy": "UseIP"}
     return cfg
+
 @app.route('/json/<path:sub_path>')
 def dyn(sub_path):
     try:
