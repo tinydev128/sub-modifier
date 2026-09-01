@@ -89,9 +89,10 @@ PORT3="$PORT3"
 PORT4="$PORT4"
 EOF
 
-    echo -e "\n\e[33m[+] Installing Dependencies...\e[0m"
-    apt update -y >/dev/null 2>&1
-    apt install -y python3-pip iptables-persistent >/dev/null 2>&1
+    echo -e "\n\e[33m[+] Installing Dependencies (Please wait)...\e[0m"
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -y >/dev/null 2>&1
+    apt-get install -y python3-pip iptables-persistent >/dev/null 2>&1
     pip3 install Flask requests gunicorn urllib3 --break-system-packages >/dev/null 2>&1 || pip3 install Flask requests gunicorn urllib3 >/dev/null 2>&1
 
     echo -e "\e[33m[+] Generating Python Scripts & Services...\e[0m"
