@@ -89,13 +89,15 @@ PORT3="$PORT3"
 PORT4="$PORT4"
 EOF
 
-    echo -e "\n\e[33m[+] Installing Dependencies (Please wait)...\e[0m"
+    echo -e "\n\e[33m[+] Installing Dependencies...\e[0m"
     export DEBIAN_FRONTEND=noninteractive
-    apt-get update -y >/dev/null 2>&1
-    apt-get install -y python3-pip iptables-persistent >/dev/null 2>&1
-    pip3 install Flask requests gunicorn urllib3 --break-system-packages >/dev/null 2>&1 || pip3 install Flask requests gunicorn urllib3 >/dev/null 2>&1
+    apt-get update -y
+    # Install Python modules directly from Ubuntu repos for maximum stability
+    apt-get install -y python3-pip iptables-persistent python3-flask python3-requests python3-urllib3 gunicorn
+    # Fallback to pip just in case
+    python3 -m pip install Flask requests gunicorn urllib3 --break-system-packages 2>/dev/null || python3 -m pip install Flask requests gunicorn urllib3 2>/dev/null
 
-    echo -e "\e[33m[+] Generating Python Scripts & Services...\e[0m"
+    echo -e "\n\e[33m[+] Generating Python Scripts & Services...\e[0m"
     
     FORMATTED_KEYWORDS=$(echo "$KEYWORDS" | sed 's/,/","/g')
     TARGET_PY="[\"$FORMATTED_KEYWORDS\"]"
