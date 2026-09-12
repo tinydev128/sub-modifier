@@ -1,6 +1,3 @@
-# Sub-Modifier
-An automated tool to dynamically modify 3x-ui subscriptions. Injects custom Fragments, CipherSuites, and SniSpoof configurations for advanced Xray clients.
-
 # 3x-ui Custom Sub Server Manager
 
 An automated bash script that sets up an advanced subscription modification server for 3x-ui panels. This tool deploys three robust Python-based services (running via Gunicorn) that dynamically modify your 3x-ui subscription configs by applying custom Fragments (Finalmask), CipherSuites, and SniSpoof configurations based on specific keywords.
@@ -22,22 +19,16 @@ Before using this tool, please keep the following rules in mind to ensure everyt
 - **Load Balancer Support:** Correctly processes nested load balancer configurations (e.g., tags starting with `bal-`).
 - **Gunicorn Integration:** Ensures high availability and prevents server freezes from malicious scanners.
 
-## 📦 Services Deployed
+## 📌 Architecture & Client Routing
 
-The script runs four separate services on different ports to accommodate various client applications:
+| Port | Path | Profile Type | Target Client(s) | Description |
+| :---: | :---: | :--- | :--- | :--- |
+| **5000** | `/sub/...` | Base64 URI | **PattNG / PattN** | Direct base64 URI sub with injected `fm` and `cs` query parameters. |
+| **5000** | `/json/...` | Standard JSON | **v2rayN / v2rayNG** | Streamlined JSON config stripped of regional bloatware. |
+| **5800** | `/json/...` | SniSpoof Profile | **V2box** | Isolates SNI spoofing; eliminates fragment/cipher conflicts. |
+| **5801** | `/json/...` | Strict Fallback | **Strict Xray Clients** | Strict standard Xray schema (`vnext` array formatting). |
+| **5802** | `/json/...` | **🛡️ Universal Fallback** | **All Incompatible Clients / NPV Tunnel** | **Universal hybrid fallback.** Resolves core parsing failures and parser rejections. |
 
-1. **Service 1 (Default Port: 5000): Minimal Structure + Finalmask + CipherSuites**
-   - **Path `/sub/...`:** Recommended for **PattNG**.
-   - **Path `/json/...`:** Recommended for **v2rayN / v2rayNG**.
-2. **Service 2 (Default Port: 5800): SniSpoof ONLY**
-   - Strips finalmask and custom ciphers, applies a minimal Xray structure.
-   - **Path `/json/...`:** Recommended for **V2box**.
-3. **Service 3 (Default Port: 5801): Strict Xray Structure + Finalmask + CipherSuites (NO SniSpoof)**
-   - Acts as a reliable fallback alternative for clients that fail on Service 1.
-4. **Service 4 (Default Port: 5802): NPV Tunnel Optimized (FM + CS + Sockopt Fallback)**
-   - Specifically injects standard fragment boundaries (`sockopt`) alongside `finalmask` to prevent the `infra/conf: LengthMin can't be 0` core rejection bug in NPV Tunnel.
-   - **Path `/json/...` ONLY:** Standard URI (`/sub/`) is strictly disabled on this port as it cannot properly transmit complex fallback arguments.
-  
 ## 🛠 Installation
 
 Run the following command on your server:
