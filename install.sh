@@ -12,6 +12,7 @@ PORT1="5000"
 PORT2="5800"
 PORT3="5801"
 PORT4="5802"
+WORKERS="1"
 
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
@@ -64,6 +65,13 @@ function install_update() {
     read -p "🔗 Enter port for Service 3 [$PORT3]: " input </dev/tty; PORT3=${input:-$PORT3}
     read -p "🔗 Enter port for Service 4 [$PORT4]: " input </dev/tty; PORT4=${input:-$PORT4}
 
+    echo -e "\n\e[36m============= PERFORMANCE CONFIGURATION =============\e[0m"
+    echo -e " 💡 \e[90mWorker Guidelines per service:\e[0m"
+    echo -e "    \e[33m1 Worker\e[0m  -> ~150MB Total RAM (Best for 1GB RAM / Up to 1,000-3,000 users)"
+    echo -e "    \e[33m2 Workers\e[0m -> ~350MB Total RAM (Best for 2GB RAM / Up to 3,000-7,000 users)"
+    echo -e "    \e[33m4 Workers\e[0m -> ~700MB Total RAM (Best for 4GB+ RAM / 10,000+ users)"
+    read -p "⚡ Enter Gunicorn workers per service [$WORKERS]: " input </dev/tty; WORKERS=${input:-$WORKERS}
+
     mkdir -p "$CONFIG_DIR"
     cat <<EOF > "$CONFIG_FILE"
 SUB_BASE_URL="$SUB_BASE_URL"
@@ -75,6 +83,7 @@ PORT1="$PORT1"
 PORT2="$PORT2"
 PORT3="$PORT3"
 PORT4="$PORT4"
+WORKERS="$WORKERS"
 EOF
 
     echo -e "\n\e[33m[+] Installing Dependencies...\e[0m"
@@ -293,7 +302,7 @@ After=network-online.target
 [Service]
 User=root
 WorkingDirectory=/opt/sub_server
-ExecStart=/usr/bin/python3 -m gunicorn --workers 4 --bind 0.0.0.0:${PORT} --certfile ${CERT_PATH} --keyfile ${KEY_PATH} --timeout 60 ${APP_NAME}:app
+ExecStart=/usr/bin/python3 -m gunicorn --workers ${WORKERS} --bind 0.0.0.0:${PORT} --certfile ${CERT_PATH} --keyfile ${KEY_PATH} --timeout 60 ${APP_NAME}:app
 Restart=always
 RestartSec=3
 [Install]
