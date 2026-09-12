@@ -25,30 +25,50 @@ function show_recommendations() {
     echo -e "\e[32m             CLIENT USAGE GUIDE                  \e[0m"
     echo -e "\e[32m=================================================\e[0m"
     echo -e "\n\e[31m⚠️ IMPORTANT USAGE NOTE:\e[0m"
-    echo -e "To use these links, replace your original subscription port with the ones below."
-    echo -e "Example: If your original JSON sub is '8.8.8.8:2020/json/...',"
-    echo -e "it should become '8.8.8.8:${PORT1}/json/...' (for Service 1)."
-    echo -e "Alternatively, you can set these as a reverse proxy in your panel."
+    echo -e "Replace your original subscription port with the endpoints below."
+    echo -e "Example: If your original sub is '8.8.8.8:2020/json/...',"
+    echo -e "it becomes '8.8.8.8:${PORT1}/json/...' (for Service 1).\n"
     
-    echo -e "\n\e[33m📌 Port ${PORT1} (Path: /sub/...)\e[0m"
-    echo -e "   ↳ \e[36mRecommended for: PattNG\e[0m"
+    echo -e "\e[33m📌 Port ${PORT1} (Path: /sub/...)\e[0m"
+    echo -e "   ↳ \e[36mBase64 URI Endpoint: Recommended for PattNG\e[0m"
     echo -e "\n\e[33m📌 Port ${PORT1} (Path: /json/...)\e[0m"
-    echo -e "   ↳ \e[36mRecommended for: v2rayN / v2rayNG\e[0m"
-    echo -e "\n\e[33m📌 Port ${PORT2} (Path: /json/...)\e[0m"
-    echo -e "   ↳ \e[36mSniSpoof ONLY - Recommended for V2box\e[0m"
-    echo -e "\n\e[33m📌 Port ${PORT3} (Path: /json/...)\e[0m"
-    echo -e "   ↳ \e[36mFallback (Strict Xray Structure + FM/CS) for clients failing on Port ${PORT1}\e[0m"
+    echo -e "   ↳ \e[36mStandard JSON Endpoint: Recommended for v2rayN / v2rayNG\e[0m"
+    echo -e "\n\e[33m📌 Port ${PORT2} (Path: /json/... ONLY)\e[0m"
+    echo -e "   ↳ \e[36mSniSpoof Isolated: Recommended for V2box\e[0m"
+    echo -e "\n\e[33m📌 Port ${PORT3} (Path: /json/... ONLY)\e[0m"
+    echo -e "   ↳ \e[36mStrict Fallback (Xray vnext Schema + Clean CipherSuites)\e[0m"
     echo -e "\n\e[33m📌 Port ${PORT4} (Path: /json/... ONLY)\e[0m"
-    echo -e "   ↳ \e[36mNPV Tunnel Optimized (Hybrid Finalmask + CipherSuites)\e[0m"
+    echo -e "   ↳ \e[32m🛡️ Universal Fallback (Hybrid Engine)\e[0m"
+    echo -e "     \e[90mUltimate fallback for any client throwing core errors (e.g. NPV Tunnel LengthMin rejections)\e[0m"
     echo -e "\n\e[32m=================================================\e[0m\n"
 }
 
-function install_dependencies() {
-    echo -e "\n\e[33m[+] Checking & Installing System Dependencies...\e[0m"
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update -y
-    apt-get install -y python3-pip iptables-persistent python3-flask python3-requests python3-urllib3 gunicorn curl
-    python3 -m pip install Flask requests gunicorn urllib3 --break-system-packages 2>/dev/null || python3 -m pip install Flask requests gunicorn urllib3 2>/dev/null
+function ensure_dependencies() {
+    local missing_deps=0
+
+    for cmd in python3 curl iptables netfilter-persistent gunicorn; do
+        if ! command -v "$cmd" &>/dev/null; then
+            missing_deps=1
+            break
+        fi
+    done
+
+    if [ $missing_deps -eq 0 ]; then
+        if ! python3 -c "import flask, requests, urllib3" &>/dev/null; then
+            missing_deps=1
+        fi
+    fi
+
+    if [ $missing_deps -eq 1 ]; then
+        echo -e "\n\e[33m[+] Missing dependencies detected. Installing required packages...\e[0m"
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update -y
+        apt-get install -y python3 python3-pip iptables-persistent netfilter-persistent python3-flask python3-requests python3-urllib3 gunicorn curl
+        python3 -m pip install Flask requests gunicorn urllib3 --break-system-packages 2>/dev/null || python3 -m pip install Flask requests gunicorn urllib3 2>/dev/null
+        echo -e "\e[32m[✔] All dependencies are verified and ready.\e[0m"
+    else
+        echo -e "\n\e[32m[✔] All system & Python dependencies are already installed.\e[0m"
+    fi
 }
 
 function deploy_services() {
@@ -342,9 +362,17 @@ function configure_and_install() {
     read -p "Enter SSL Privkey Path [$KEY_PATH]: " input </dev/tty; KEY_PATH=${input:-$KEY_PATH}
 
     echo -e "\n\e[36m================ PORT CONFIGURATION ================\e[0m"
+    echo -e "\e[32mService 1:\e[0m Primary Dual Service (URI /sub/ for PattNG, JSON /json/ for v2rayN/v2rayNG)"
     read -p "🔗 Enter port for Service 1 [$PORT1]: " input </dev/tty; PORT1=${input:-$PORT1}
+
+    echo -e "\n\e[32mService 2:\e[0m Dedicated SniSpoof Profile (JSON only, tailored for V2box)"
     read -p "🔗 Enter port for Service 2 [$PORT2]: " input </dev/tty; PORT2=${input:-$PORT2}
+
+    echo -e "\n\e[32mService 3:\e[0m Strict Fallback (Strict Xray vnext schema + FM/CS)"
     read -p "🔗 Enter port for Service 3 [$PORT3]: " input </dev/tty; PORT3=${input:-$PORT3}
+
+    echo -e "\n\e[32mService 4:\e[0m 🛡️ Universal Fallback (Hybrid Fragment + CipherSuites)"
+    echo -e " 💡 \e[90m(Ultimate fallback for any client throwing core rejections, e.g. NPV Tunnel LengthMin error)\e[0m"
     read -p "🔗 Enter port for Service 4 [$PORT4]: " input </dev/tty; PORT4=${input:-$PORT4}
 
     echo -e "\n\e[36m============= PERFORMANCE CONFIGURATION =============\e[0m"
@@ -379,10 +407,7 @@ WORKERS="$WORKERS"
 FM_VERSION="$FM_VERSION"
 EOF
 
-    if ! command -v gunicorn &>/dev/null || ! python3 -c "import flask, requests, urllib3" &>/dev/null; then
-        install_dependencies
-    fi
-
+    ensure_dependencies
     deploy_services
 
     echo -e "\n\e[32m[✔] Settings saved and services deployed successfully!\e[0m"
