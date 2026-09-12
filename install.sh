@@ -59,21 +59,9 @@ function install_update() {
     read -p "Enter SSL Privkey Path [$KEY_PATH]: " input </dev/tty; KEY_PATH=${input:-$KEY_PATH}
 
     echo -e "\n\e[36m================ PORT CONFIGURATION ================\e[0m"
-    
-    echo -e "\n\e[32mService 1:\e[0m Minimal DNS/Routing + Finalmask + CipherSuites"
-    echo -e " 💡 \e[90m(Path /sub/ recommended for PattNG, /json/ for v2rayN/v2rayNG)\e[0m"
     read -p "🔗 Enter port for Service 1 [$PORT1]: " input </dev/tty; PORT1=${input:-$PORT1}
-
-    echo -e "\n\e[32mService 2:\e[0m Minimal DNS/Routing + SniSpoof ONLY (No fragment/ciphers)"
-    echo -e " 💡 \e[90m(Path /json/ recommended for V2box)\e[0m"
     read -p "🔗 Enter port for Service 2 [$PORT2]: " input </dev/tty; PORT2=${input:-$PORT2}
-
-    echo -e "\n\e[32mService 3:\e[0m Minimal DNS/Routing + Strict Xray Format + Finalmask + CipherSuites (NO SniSpoof)"
-    echo -e " 💡 \e[90m(Fallback option for strict clients that fail on Service 1)\e[0m"
     read -p "🔗 Enter port for Service 3 [$PORT3]: " input </dev/tty; PORT3=${input:-$PORT3}
-
-    echo -e "\n\e[32mService 4:\e[0m NPV Tunnel Optimized (Hybrid Finalmask + CipherSuites)"
-    echo -e " 💡 \e[90m(Specifically designed to bypass the 'LengthMin can't be 0' error in NPV Tunnel)\e[0m"
     read -p "🔗 Enter port for Service 4 [$PORT4]: " input </dev/tty; PORT4=${input:-$PORT4}
 
     mkdir -p "$CONFIG_DIR"
@@ -97,17 +85,15 @@ EOF
 
     echo -e "\n\e[33m[+] Generating Python Scripts & Services...\e[0m"
     
-    FORMATTED_KEYWORDS=$(echo "$KEYWORDS" | sed 's/,/","/g')
-    TARGET_PY="[\"$FORMATTED_KEYWORDS\"]"
+    TARGET_PY=$(python3 -c "import json; print(json.dumps([k.strip() for k in '$KEYWORDS'.split(',') if k.strip()]))")
 
-    # ================== SERVICE 1 (MINIMAL + FM + CS) ==================
-    cat << 'EOF' > /opt/sub_server/app_1.py
+    cat << EOF > /opt/sub_server/app_1.py
 from flask import Flask, jsonify, request, make_response
 import requests, copy, urllib3, base64, urllib.parse, json
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
-SUB_BASE_URL = "__SUB_BASE_URL__"
-TARGET_KEYWORDS = __TARGET_KEYWORDS__
+SUB_BASE_URL = "${SUB_BASE_URL}"
+TARGET_KEYWORDS = ${TARGET_PY}
 CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
 FINALMASK_TCP = [{"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["0", "104", "1"], "delays": ["0"], "maxSplit": "0"}}, {"type": "fragment", "settings": {"packets": "1-1", "lengths": ["114", "1"], "delays": ["1"], "maxSplit": "11"}}]
 MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
@@ -162,15 +148,14 @@ def dynamic_uri_sub(sub_path):
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
-    # ================== SERVICE 2 (MINIMAL + SNISPOOF ONLY) ==================
-    cat << 'EOF' > /opt/sub_server/app_2.py
+    cat << EOF > /opt/sub_server/app_2.py
 from flask import Flask, jsonify, request
 import requests, copy, urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
-SUB_BASE_URL = "__SUB_BASE_URL__"
-TARGET_KEYWORDS = __TARGET_KEYWORDS__
-SPOOF_IP = "__SPOOF_IP__"
+SUB_BASE_URL = "${SUB_BASE_URL}"
+TARGET_KEYWORDS = ${TARGET_PY}
+SPOOF_IP = "${SPOOF_IP}"
 MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
 MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
 MINIMAL_ROUTING_PROXY = {"domainStrategy": "AsIs", "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]}
@@ -207,14 +192,13 @@ def dyn(sub_path):
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
-    # ================== SERVICE 3 (MINIMAL + STRICT XRAY + FM + CS) ==================
-    cat << 'EOF' > /opt/sub_server/app_3.py
+    cat << EOF > /opt/sub_server/app_3.py
 from flask import Flask, jsonify, request
 import requests, copy, urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
-SUB_BASE_URL = "__SUB_BASE_URL__"
-TARGET_KEYWORDS = __TARGET_KEYWORDS__
+SUB_BASE_URL = "${SUB_BASE_URL}"
+TARGET_KEYWORDS = ${TARGET_PY}
 CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
 FINALMASK_TCP = [{"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["0", "104", "1"], "delays": ["0"], "maxSplit": "0"}}, {"type": "fragment", "settings": {"packets": "1-1", "lengths": ["114", "1"], "delays": ["1"], "maxSplit": "11"}}]
 MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
@@ -231,9 +215,7 @@ def process_cfg(cfg):
             out["mux"] = {"concurrency": -1, "enabled": False}
             old = out.get("settings", {})
             if "address" in old: out["settings"] = {"vnext": [{"address": old.get("address"), "port": old.get("port"), "users": [{"encryption": old.get("encryption", "none"), "flow": old.get("flow", ""), "id": old.get("id"), "level": old.get("level", 8)}]}]}
-            
             out.pop("sniSpoof", None)
-            
             st = out.get("streamSettings", {})
             st["finalmask"] = {"tcp": FINALMASK_TCP}
             if "tlsSettings" in st:
@@ -254,26 +236,21 @@ def dyn(sub_path):
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
-    # ================== SERVICE 4 (NPV TUNNEL HYBRID FINALMASK) ==================
-    cat << 'EOF' > /opt/sub_server/app_4.py
+    cat << EOF > /opt/sub_server/app_4.py
 from flask import Flask, jsonify, request
 import requests, copy, urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
-SUB_BASE_URL = "__SUB_BASE_URL__"
-TARGET_KEYWORDS = __TARGET_KEYWORDS__
+SUB_BASE_URL = "${SUB_BASE_URL}"
+TARGET_KEYWORDS = ${TARGET_PY}
 CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
-
-# Hybrid Finalmask: Includes both 'lengths' (arrays) and 'length' (strings) to satisfy strict parsers like NPV Tunnel
 FINALMASK_TCP_HYBRID = [
     {"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["0", "104", "1"], "delays": ["0"], "maxSplit": "0", "length": "100-200", "interval": "10-20"}}, 
     {"type": "fragment", "settings": {"packets": "1-1", "lengths": ["114", "1"], "delays": ["1"], "maxSplit": "11", "length": "10-20", "interval": "10-20"}}
 ]
-
 MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
 MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
 MINIMAL_ROUTING_PROXY = {"domainStrategy": "AsIs", "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]}
-
 def process_cfg(cfg):
     if not any(k in cfg.get("remarks", "") for k in TARGET_KEYWORDS): return cfg
     cfg["dns"] = copy.deepcopy(MINIMAL_DNS)
@@ -285,11 +262,8 @@ def process_cfg(cfg):
             out["mux"] = {"concurrency": -1, "enabled": False}
             old = out.get("settings", {})
             if "address" in old: out["settings"] = {"vnext": [{"address": old.get("address"), "port": old.get("port"), "users": [{"encryption": old.get("encryption", "none"), "flow": old.get("flow", ""), "id": old.get("id"), "level": old.get("level", 8)}]}]}
-            
             out.pop("sniSpoof", None)
-            
             st = out.get("streamSettings", {})
-            # Inject Hybrid Finalmask for NPV Tunnel
             st["finalmask"] = {"tcp": FINALMASK_TCP_HYBRID}
             if "tlsSettings" in st:
                 st["tlsSettings"].pop("alpn", None)
@@ -300,7 +274,6 @@ def process_cfg(cfg):
             out["streamSettings"] = st
         elif tag == "direct": out["settings"] = {"domainStrategy": "UseIP"}
     return cfg
-
 @app.route('/json/<path:sub_path>')
 def dyn(sub_path):
     try:
@@ -310,14 +283,6 @@ def dyn(sub_path):
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
-    # Replace variables in all apps
-    for f in app_1.py app_2.py app_3.py app_4.py; do
-        sed -i "s|__SUB_BASE_URL__|${SUB_BASE_URL}|g" /opt/sub_server/$f
-        sed -i "s|__TARGET_KEYWORDS__|${TARGET_PY}|g" /opt/sub_server/$f
-        sed -i "s|__SPOOF_IP__|${SPOOF_IP}|g" /opt/sub_server/$f
-    done
-
-    # Create and start services
     for PORT in $PORT1 $PORT2 $PORT3 $PORT4; do
         if [ "$PORT" == "$PORT1" ]; then APP_NAME="app_1"; elif [ "$PORT" == "$PORT2" ]; then APP_NAME="app_2"; elif [ "$PORT" == "$PORT3" ]; then APP_NAME="app_3"; else APP_NAME="app_4"; fi
         cat << EOF > /etc/systemd/system/subserver${PORT}.service
