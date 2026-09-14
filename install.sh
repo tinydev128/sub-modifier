@@ -94,9 +94,11 @@ SUB_BASE_URL = "${SUB_BASE_URL}"
 TARGET_KEYWORDS = ${TARGET_PY}
 CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
 FINALMASK_TCP = ${FINALMASK_TCP}
+EXCLUDED_HEADERS = {'content-length', 'content-encoding', 'transfer-encoding', 'connection', 'server'}
 MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
 MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
 MINIMAL_ROUTING_PROXY = {"domainStrategy": "AsIs", "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]}
+
 def process_json_config(config):
     if not any(k in config.get("remarks", "") for k in TARGET_KEYWORDS): return config
     config["dns"] = copy.deepcopy(MINIMAL_DNS)
@@ -112,14 +114,22 @@ def process_json_config(config):
             stream["tlsSettings"] = tls
             out["streamSettings"] = stream
     return config
+
 @app.route('/json/<path:sub_path>')
 def dynamic_json_sub(sub_path):
     try:
-        resp = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", verify=False, timeout=10)
+        ua = request.headers.get('User-Agent')
+        req_headers = {'User-Agent': ua} if ua else {}
+        resp = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", headers=req_headers, verify=False, timeout=10)
         data = resp.json()
         mod_data = [process_json_config(cfg) for cfg in data] if isinstance(data, list) else process_json_config(data) if isinstance(data, dict) else data
-        return jsonify(mod_data)
+        flask_resp = jsonify(mod_data)
+        for k, v in resp.headers.items():
+            if k.lower() not in EXCLUDED_HEADERS:
+                flask_resp.headers[k] = v
+        return flask_resp
     except Exception as e: return jsonify({"error": str(e)}), 500
+
 def process_uri_config(uri):
     if not uri.startswith("vless://"): return uri
     try:
@@ -131,10 +141,12 @@ def process_uri_config(uri):
         new_q = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
         return f"{hp}?{new_q}#{rem}"
     except: return uri
+
 @app.route('/sub/<path:sub_path>')
 def dynamic_uri_sub(sub_path):
     try:
-        resp = requests.get(f"{SUB_BASE_URL}/sub/{sub_path}", headers={"User-Agent": "v2rayN/6.42"}, verify=False, timeout=10)
+        ua = request.headers.get('User-Agent', 'v2rayN/6.42')
+        resp = requests.get(f"{SUB_BASE_URL}/sub/{sub_path}", headers={"User-Agent": ua}, verify=False, timeout=10)
         raw = resp.text.strip()
         raw += '=' * (-len(raw) % 4)
         try: dec = base64.b64decode(raw).decode('utf-8')
@@ -142,6 +154,9 @@ def dynamic_uri_sub(sub_path):
         mod = [process_uri_config(l.strip()) for l in dec.split('\n') if l.strip()]
         res = make_response(base64.b64encode('\n'.join(mod).encode('utf-8')).decode('utf-8'))
         res.headers['Content-Type'] = 'text/plain; charset=utf-8'
+        for k, v in resp.headers.items():
+            if k.lower() not in EXCLUDED_HEADERS and k.lower() != 'content-type':
+                res.headers[k] = v
         return res
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
@@ -154,9 +169,11 @@ app = Flask(__name__)
 SUB_BASE_URL = "${SUB_BASE_URL}"
 TARGET_KEYWORDS = ${TARGET_PY}
 SPOOF_IP = "${SPOOF_IP}"
+EXCLUDED_HEADERS = {'content-length', 'content-encoding', 'transfer-encoding', 'connection', 'server'}
 MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
 MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
 MINIMAL_ROUTING_PROXY = {"domainStrategy": "AsIs", "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]}
+
 def process_cfg(cfg):
     if not any(k in cfg.get("remarks", "") for k in TARGET_KEYWORDS): return cfg
     cfg["dns"] = copy.deepcopy(MINIMAL_DNS)
@@ -181,12 +198,20 @@ def process_cfg(cfg):
             out["streamSettings"] = st
         elif tag == "direct": out["settings"] = {"domainStrategy": "UseIP"}
     return cfg
+
 @app.route('/json/<path:sub_path>')
 def dyn(sub_path):
     try:
-        data = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", verify=False, timeout=10).json()
+        ua = request.headers.get('User-Agent')
+        req_headers = {'User-Agent': ua} if ua else {}
+        resp = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", headers=req_headers, verify=False, timeout=10)
+        data = resp.json()
         mod = [process_cfg(c) for c in data] if isinstance(data, list) else process_cfg(data) if isinstance(data, dict) else data
-        return jsonify(mod)
+        flask_resp = jsonify(mod)
+        for k, v in resp.headers.items():
+            if k.lower() not in EXCLUDED_HEADERS:
+                flask_resp.headers[k] = v
+        return flask_resp
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
@@ -199,9 +224,11 @@ SUB_BASE_URL = "${SUB_BASE_URL}"
 TARGET_KEYWORDS = ${TARGET_PY}
 CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
 FINALMASK_TCP = ${FINALMASK_TCP}
+EXCLUDED_HEADERS = {'content-length', 'content-encoding', 'transfer-encoding', 'connection', 'server'}
 MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
 MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
 MINIMAL_ROUTING_PROXY = {"domainStrategy": "AsIs", "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]}
+
 def process_cfg(cfg):
     if not any(k in cfg.get("remarks", "") for k in TARGET_KEYWORDS): return cfg
     cfg["dns"] = copy.deepcopy(MINIMAL_DNS)
@@ -225,12 +252,20 @@ def process_cfg(cfg):
             out["streamSettings"] = st
         elif tag == "direct": out["settings"] = {"domainStrategy": "UseIP"}
     return cfg
+
 @app.route('/json/<path:sub_path>')
 def dyn(sub_path):
     try:
-        data = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", verify=False, timeout=10).json()
+        ua = request.headers.get('User-Agent')
+        req_headers = {'User-Agent': ua} if ua else {}
+        resp = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", headers=req_headers, verify=False, timeout=10)
+        data = resp.json()
         mod = [process_cfg(c) for c in data] if isinstance(data, list) else process_cfg(data) if isinstance(data, dict) else data
-        return jsonify(mod)
+        flask_resp = jsonify(mod)
+        for k, v in resp.headers.items():
+            if k.lower() not in EXCLUDED_HEADERS:
+                flask_resp.headers[k] = v
+        return flask_resp
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
@@ -243,9 +278,11 @@ SUB_BASE_URL = "${SUB_BASE_URL}"
 TARGET_KEYWORDS = ${TARGET_PY}
 CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
 FINALMASK_TCP_HYBRID = ${FINALMASK_TCP_HYBRID}
+EXCLUDED_HEADERS = {'content-length', 'content-encoding', 'transfer-encoding', 'connection', 'server'}
 MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
 MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
 MINIMAL_ROUTING_PROXY = {"domainStrategy": "AsIs", "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]}
+
 def process_cfg(cfg):
     if not any(k in cfg.get("remarks", "") for k in TARGET_KEYWORDS): return cfg
     cfg["dns"] = copy.deepcopy(MINIMAL_DNS)
@@ -269,12 +306,20 @@ def process_cfg(cfg):
             out["streamSettings"] = st
         elif tag == "direct": out["settings"] = {"domainStrategy": "UseIP"}
     return cfg
+
 @app.route('/json/<path:sub_path>')
 def dyn(sub_path):
     try:
-        data = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", verify=False, timeout=10).json()
+        ua = request.headers.get('User-Agent')
+        req_headers = {'User-Agent': ua} if ua else {}
+        resp = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", headers=req_headers, verify=False, timeout=10)
+        data = resp.json()
         mod = [process_cfg(c) for c in data] if isinstance(data, list) else process_cfg(data) if isinstance(data, dict) else data
-        return jsonify(mod)
+        flask_resp = jsonify(mod)
+        for k, v in resp.headers.items():
+            if k.lower() not in EXCLUDED_HEADERS:
+                flask_resp.headers[k] = v
+        return flask_resp
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
