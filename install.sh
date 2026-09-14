@@ -26,18 +26,16 @@ function show_recommendations() {
     echo -e "\e[32m=================================================\e[0m"
     echo -e "\n\e[31m⚠️ IMPORTANT USAGE NOTE:\e[0m"
     echo -e "Replace your original subscription port with the endpoints below."
-    echo -e "Example: If your original sub is '8.8.8.8:2020/json/...',"
-    echo -e "it becomes '8.8.8.8:${PORT1}/json/...' (for Service 1).\n"
+    echo -e "Example: If your original sub is '8.8.8.8:2020/sub/...',"
+    echo -e "it becomes '8.8.8.8:${PORT1}/sub/...' (for Service 1).\n"
     
-    echo -e "\e[33m📌 Port ${PORT1} (Path: /sub/...)\e[0m"
-    echo -e "   ↳ \e[36mBase64 URI Endpoint: Recommended for PattNG\e[0m"
-    echo -e "\n\e[33m📌 Port ${PORT1} (Path: /json/...)\e[0m"
-    echo -e "   ↳ \e[36mStandard JSON Endpoint: Recommended for v2rayN / v2rayNG\e[0m"
-    echo -e "\n\e[33m📌 Port ${PORT2} (Path: /json/... ONLY)\e[0m"
+    echo -e "\e[33m📌 Port ${PORT1} (Path: /sub/... or /json/...)\e[0m"
+    echo -e "   ↳ \e[36mPrimary Service: Supports both Base64 URI (PattNG) & JSON (v2rayN/v2rayNG)\e[0m"
+    echo -e "\n\e[33m📌 Port ${PORT2} (Path: /json/... or /sub/...)\e[0m"
     echo -e "   ↳ \e[36mSniSpoof Isolated: Recommended for V2box\e[0m"
-    echo -e "\n\e[33m📌 Port ${PORT3} (Path: /json/... ONLY)\e[0m"
-    echo -e "   ↳ \e[36mStrict Fallback (Xray vnext Schema + Clean CipherSuites)\e[0m"
-    echo -e "\n\e[33m📌 Port ${PORT4} (Path: /json/... ONLY)\e[0m"
+    echo -e "\n\e[33m📌 Port ${PORT3} (Path: /json/... or /sub/...)\e[0m"
+    echo -e "   ↳ \e[36mStrict Fallback (Strict Xray vnext Schema + FM/CS)\e[0m"
+    echo -e "\n\e[33m📌 Port ${PORT4} (Path: /json/... or /sub/...)\e[0m"
     echo -e "   ↳ \e[32m🛡️ Universal Fallback (Hybrid Engine)\e[0m"
     echo -e "     \e[90mUltimate fallback for any client throwing core errors (e.g. NPV Tunnel LengthMin rejections)\e[0m"
     echo -e "\n\e[32m=================================================\e[0m\n"
@@ -85,16 +83,40 @@ function deploy_services() {
         FINALMASK_TCP_HYBRID='[{"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["0", "104", "1"], "delays": ["0"], "maxSplit": "0", "length": "100-200", "interval": "10-20"}}, {"type": "fragment", "settings": {"packets": "1-1", "lengths": ["114", "1"], "delays": ["1"], "maxSplit": "11", "length": "10-20", "interval": "10-20"}}]'
     fi
 
+    # =========================================================================
+    # APP 1 (Port 5000: Primary Minimal + FM + CS)
+    # =========================================================================
     cat << EOF > /opt/sub_server/app_1.py
 from flask import Flask, jsonify, request, make_response
 import requests, copy, urllib3, base64, urllib.parse, json
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
 SUB_BASE_URL = "${SUB_BASE_URL}"
 TARGET_KEYWORDS = ${TARGET_PY}
 CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
 FINALMASK_TCP = ${FINALMASK_TCP}
-EXCLUDED_HEADERS = {'content-length', 'content-encoding', 'transfer-encoding', 'connection', 'server'}
+
+HOP_BY_HOP = {'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-encoding', 'content-length', 'server'}
+
+def copy_headers(upstream_headers, flask_resp):
+    for k, v in upstream_headers.items():
+        if k.lower() not in HOP_BY_HOP and k.lower() != 'content-type':
+            try:
+                v.encode('latin-1')
+                flask_resp.headers[k] = v
+            except UnicodeEncodeError:
+                flask_resp.headers[k] = v.encode('utf-8').decode('latin-1')
+
+def get_client_headers():
+    h = {}
+    for k, v in request.headers:
+        if k.lower() not in {'host', 'content-length'}:
+            h[k] = v
+    if 'User-Agent' not in h and 'user-agent' not in h:
+        h['User-Agent'] = 'v2rayN/6.42'
+    return h
+
 MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
 MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
 MINIMAL_ROUTING_PROXY = {"domainStrategy": "AsIs", "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]}
@@ -118,15 +140,14 @@ def process_json_config(config):
 @app.route('/json/<path:sub_path>')
 def dynamic_json_sub(sub_path):
     try:
-        ua = request.headers.get('User-Agent')
-        req_headers = {'User-Agent': ua} if ua else {}
-        resp = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", headers=req_headers, verify=False, timeout=10)
+        qs = request.query_string.decode('utf-8')
+        sep = "&" if qs else "?"
+        url = f"{SUB_BASE_URL}/json/{sub_path}?{qs}" if "view=raw" in qs else f"{SUB_BASE_URL}/json/{sub_path}?{qs}{sep}view=raw" if qs else f"{SUB_BASE_URL}/json/{sub_path}?view=raw"
+        resp = requests.get(url, headers=get_client_headers(), verify=False, timeout=10)
         data = resp.json()
         mod_data = [process_json_config(cfg) for cfg in data] if isinstance(data, list) else process_json_config(data) if isinstance(data, dict) else data
         flask_resp = jsonify(mod_data)
-        for k, v in resp.headers.items():
-            if k.lower() not in EXCLUDED_HEADERS:
-                flask_resp.headers[k] = v
+        copy_headers(resp.headers, flask_resp)
         return flask_resp
     except Exception as e: return jsonify({"error": str(e)}), 500
 
@@ -145,8 +166,9 @@ def process_uri_config(uri):
 @app.route('/sub/<path:sub_path>')
 def dynamic_uri_sub(sub_path):
     try:
-        ua = request.headers.get('User-Agent', 'v2rayN/6.42')
-        resp = requests.get(f"{SUB_BASE_URL}/sub/{sub_path}", headers={"User-Agent": ua}, verify=False, timeout=10)
+        qs = request.query_string.decode('utf-8')
+        url = f"{SUB_BASE_URL}/sub/{sub_path}" + (f"?{qs}" if qs else "")
+        resp = requests.get(url, headers=get_client_headers(), verify=False, timeout=10)
         raw = resp.text.strip()
         raw += '=' * (-len(raw) % 4)
         try: dec = base64.b64decode(raw).decode('utf-8')
@@ -154,22 +176,43 @@ def dynamic_uri_sub(sub_path):
         mod = [process_uri_config(l.strip()) for l in dec.split('\n') if l.strip()]
         res = make_response(base64.b64encode('\n'.join(mod).encode('utf-8')).decode('utf-8'))
         res.headers['Content-Type'] = 'text/plain; charset=utf-8'
-        for k, v in resp.headers.items():
-            if k.lower() not in EXCLUDED_HEADERS and k.lower() != 'content-type':
-                res.headers[k] = v
+        copy_headers(resp.headers, res)
         return res
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
+    # =========================================================================
+    # APP 2 (Port 5800: SniSpoof ONLY for V2box)
+    # =========================================================================
     cat << EOF > /opt/sub_server/app_2.py
-from flask import Flask, jsonify, request
-import requests, copy, urllib3
+from flask import Flask, jsonify, request, make_response
+import requests, copy, urllib3, base64, urllib.parse
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
 SUB_BASE_URL = "${SUB_BASE_URL}"
 TARGET_KEYWORDS = ${TARGET_PY}
 SPOOF_IP = "${SPOOF_IP}"
-EXCLUDED_HEADERS = {'content-length', 'content-encoding', 'transfer-encoding', 'connection', 'server'}
+
+HOP_BY_HOP = {'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-encoding', 'content-length', 'server'}
+
+def copy_headers(upstream_headers, flask_resp):
+    for k, v in upstream_headers.items():
+        if k.lower() not in HOP_BY_HOP and k.lower() != 'content-type':
+            try:
+                v.encode('latin-1')
+                flask_resp.headers[k] = v
+            except UnicodeEncodeError:
+                flask_resp.headers[k] = v.encode('utf-8').decode('latin-1')
+
+def get_client_headers():
+    h = {}
+    for k, v in request.headers:
+        if k.lower() not in {'host', 'content-length'}:
+            h[k] = v
+    if 'User-Agent' not in h and 'user-agent' not in h:
+        h['User-Agent'] = 'v2rayN/6.42'
+    return h
+
 MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
 MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
 MINIMAL_ROUTING_PROXY = {"domainStrategy": "AsIs", "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]}
@@ -202,29 +245,63 @@ def process_cfg(cfg):
 @app.route('/json/<path:sub_path>')
 def dyn(sub_path):
     try:
-        ua = request.headers.get('User-Agent')
-        req_headers = {'User-Agent': ua} if ua else {}
-        resp = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", headers=req_headers, verify=False, timeout=10)
+        qs = request.query_string.decode('utf-8')
+        sep = "&" if qs else "?"
+        url = f"{SUB_BASE_URL}/json/{sub_path}?{qs}" if "view=raw" in qs else f"{SUB_BASE_URL}/json/{sub_path}?{qs}{sep}view=raw" if qs else f"{SUB_BASE_URL}/json/{sub_path}?view=raw"
+        resp = requests.get(url, headers=get_client_headers(), verify=False, timeout=10)
         data = resp.json()
         mod = [process_cfg(c) for c in data] if isinstance(data, list) else process_cfg(data) if isinstance(data, dict) else data
         flask_resp = jsonify(mod)
-        for k, v in resp.headers.items():
-            if k.lower() not in EXCLUDED_HEADERS:
-                flask_resp.headers[k] = v
+        copy_headers(resp.headers, flask_resp)
         return flask_resp
+    except Exception as e: return jsonify({"error": str(e)}), 500
+
+@app.route('/sub/<path:sub_path>')
+def dyn_sub(sub_path):
+    try:
+        qs = request.query_string.decode('utf-8')
+        url = f"{SUB_BASE_URL}/sub/{sub_path}" + (f"?{qs}" if qs else "")
+        resp = requests.get(url, headers=get_client_headers(), verify=False, timeout=10)
+        res = make_response(resp.text)
+        res.headers['Content-Type'] = resp.headers.get('Content-Type', 'text/plain; charset=utf-8')
+        copy_headers(resp.headers, res)
+        return res
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
+    # =========================================================================
+    # APP 3 (Port 5801: Strict Fallback Schema + FM + CS)
+    # =========================================================================
     cat << EOF > /opt/sub_server/app_3.py
-from flask import Flask, jsonify, request
-import requests, copy, urllib3
+from flask import Flask, jsonify, request, make_response
+import requests, copy, urllib3, base64, urllib.parse, json
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
 SUB_BASE_URL = "${SUB_BASE_URL}"
 TARGET_KEYWORDS = ${TARGET_PY}
 CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
 FINALMASK_TCP = ${FINALMASK_TCP}
-EXCLUDED_HEADERS = {'content-length', 'content-encoding', 'transfer-encoding', 'connection', 'server'}
+
+HOP_BY_HOP = {'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-encoding', 'content-length', 'server'}
+
+def copy_headers(upstream_headers, flask_resp):
+    for k, v in upstream_headers.items():
+        if k.lower() not in HOP_BY_HOP and k.lower() != 'content-type':
+            try:
+                v.encode('latin-1')
+                flask_resp.headers[k] = v
+            except UnicodeEncodeError:
+                flask_resp.headers[k] = v.encode('utf-8').decode('latin-1')
+
+def get_client_headers():
+    h = {}
+    for k, v in request.headers:
+        if k.lower() not in {'host', 'content-length'}:
+            h[k] = v
+    if 'User-Agent' not in h and 'user-agent' not in h:
+        h['User-Agent'] = 'v2rayN/6.42'
+    return h
+
 MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
 MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
 MINIMAL_ROUTING_PROXY = {"domainStrategy": "AsIs", "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]}
@@ -256,29 +333,80 @@ def process_cfg(cfg):
 @app.route('/json/<path:sub_path>')
 def dyn(sub_path):
     try:
-        ua = request.headers.get('User-Agent')
-        req_headers = {'User-Agent': ua} if ua else {}
-        resp = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", headers=req_headers, verify=False, timeout=10)
+        qs = request.query_string.decode('utf-8')
+        sep = "&" if qs else "?"
+        url = f"{SUB_BASE_URL}/json/{sub_path}?{qs}" if "view=raw" in qs else f"{SUB_BASE_URL}/json/{sub_path}?{qs}{sep}view=raw" if qs else f"{SUB_BASE_URL}/json/{sub_path}?view=raw"
+        resp = requests.get(url, headers=get_client_headers(), verify=False, timeout=10)
         data = resp.json()
         mod = [process_cfg(c) for c in data] if isinstance(data, list) else process_cfg(data) if isinstance(data, dict) else data
         flask_resp = jsonify(mod)
-        for k, v in resp.headers.items():
-            if k.lower() not in EXCLUDED_HEADERS:
-                flask_resp.headers[k] = v
+        copy_headers(resp.headers, flask_resp)
         return flask_resp
+    except Exception as e: return jsonify({"error": str(e)}), 500
+
+def process_uri_config(uri):
+    if not uri.startswith("vless://"): return uri
+    try:
+        b_url, rem = uri.split("#", 1)
+        if not any(k in urllib.parse.unquote(rem) for k in TARGET_KEYWORDS): return uri
+        hp, qp = b_url.split("?", 1) if "?" in b_url else (b_url, "")
+        params = dict(urllib.parse.parse_qsl(qp))
+        params.update({"fp": "unsafe", "cs": CIPHER_SUITES, "fm": json.dumps({"tcp": FINALMASK_TCP}), "allowInsecure": "0", "insecure": "0"})
+        new_q = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+        return f"{hp}?{new_q}#{rem}"
+    except: return uri
+
+@app.route('/sub/<path:sub_path>')
+def dyn_sub(sub_path):
+    try:
+        qs = request.query_string.decode('utf-8')
+        url = f"{SUB_BASE_URL}/sub/{sub_path}" + (f"?{qs}" if qs else "")
+        resp = requests.get(url, headers=get_client_headers(), verify=False, timeout=10)
+        raw = resp.text.strip()
+        raw += '=' * (-len(raw) % 4)
+        try: dec = base64.b64decode(raw).decode('utf-8')
+        except: dec = resp.text
+        mod = [process_uri_config(l.strip()) for l in dec.split('\n') if l.strip()]
+        res = make_response(base64.b64encode('\n'.join(mod).encode('utf-8')).decode('utf-8'))
+        res.headers['Content-Type'] = 'text/plain; charset=utf-8'
+        copy_headers(resp.headers, res)
+        return res
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
+    # =========================================================================
+    # APP 4 (Port 5802: Universal Fallback - Hybrid Engine)
+    # =========================================================================
     cat << EOF > /opt/sub_server/app_4.py
-from flask import Flask, jsonify, request
-import requests, copy, urllib3
+from flask import Flask, jsonify, request, make_response
+import requests, copy, urllib3, base64, urllib.parse, json
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
 SUB_BASE_URL = "${SUB_BASE_URL}"
 TARGET_KEYWORDS = ${TARGET_PY}
 CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
 FINALMASK_TCP_HYBRID = ${FINALMASK_TCP_HYBRID}
-EXCLUDED_HEADERS = {'content-length', 'content-encoding', 'transfer-encoding', 'connection', 'server'}
+
+HOP_BY_HOP = {'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-encoding', 'content-length', 'server'}
+
+def copy_headers(upstream_headers, flask_resp):
+    for k, v in upstream_headers.items():
+        if k.lower() not in HOP_BY_HOP and k.lower() != 'content-type':
+            try:
+                v.encode('latin-1')
+                flask_resp.headers[k] = v
+            except UnicodeEncodeError:
+                flask_resp.headers[k] = v.encode('utf-8').decode('latin-1')
+
+def get_client_headers():
+    h = {}
+    for k, v in request.headers:
+        if k.lower() not in {'host', 'content-length'}:
+            h[k] = v
+    if 'User-Agent' not in h and 'user-agent' not in h:
+        h['User-Agent'] = 'v2rayN/6.42'
+    return h
+
 MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
 MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
 MINIMAL_ROUTING_PROXY = {"domainStrategy": "AsIs", "rules": [{"network": "tcp,udp", "outboundTag": "proxy", "type": "field"}]}
@@ -308,18 +436,46 @@ def process_cfg(cfg):
     return cfg
 
 @app.route('/json/<path:sub_path>')
-def dyn(sub_path):
+def dyn_json(sub_path):
     try:
-        ua = request.headers.get('User-Agent')
-        req_headers = {'User-Agent': ua} if ua else {}
-        resp = requests.get(f"{SUB_BASE_URL}/json/{sub_path}?view=raw", headers=req_headers, verify=False, timeout=10)
+        qs = request.query_string.decode('utf-8')
+        sep = "&" if qs else "?"
+        url = f"{SUB_BASE_URL}/json/{sub_path}?{qs}" if "view=raw" in qs else f"{SUB_BASE_URL}/json/{sub_path}?{qs}{sep}view=raw" if qs else f"{SUB_BASE_URL}/json/{sub_path}?view=raw"
+        resp = requests.get(url, headers=get_client_headers(), verify=False, timeout=10)
         data = resp.json()
         mod = [process_cfg(c) for c in data] if isinstance(data, list) else process_cfg(data) if isinstance(data, dict) else data
         flask_resp = jsonify(mod)
-        for k, v in resp.headers.items():
-            if k.lower() not in EXCLUDED_HEADERS:
-                flask_resp.headers[k] = v
+        copy_headers(resp.headers, flask_resp)
         return flask_resp
+    except Exception as e: return jsonify({"error": str(e)}), 500
+
+def process_uri_config(uri):
+    if not uri.startswith("vless://"): return uri
+    try:
+        b_url, rem = uri.split("#", 1)
+        if not any(k in urllib.parse.unquote(rem) for k in TARGET_KEYWORDS): return uri
+        hp, qp = b_url.split("?", 1) if "?" in b_url else (b_url, "")
+        params = dict(urllib.parse.parse_qsl(qp))
+        params.update({"fp": "unsafe", "cs": CIPHER_SUITES, "fm": json.dumps({"tcp": FINALMASK_TCP_HYBRID}), "allowInsecure": "0", "insecure": "0"})
+        new_q = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+        return f"{hp}?{new_q}#{rem}"
+    except: return uri
+
+@app.route('/sub/<path:sub_path>')
+def dyn_sub(sub_path):
+    try:
+        qs = request.query_string.decode('utf-8')
+        url = f"{SUB_BASE_URL}/sub/{sub_path}" + (f"?{qs}" if qs else "")
+        resp = requests.get(url, headers=get_client_headers(), verify=False, timeout=10)
+        raw = resp.text.strip()
+        raw += '=' * (-len(raw) % 4)
+        try: dec = base64.b64decode(raw).decode('utf-8')
+        except: dec = resp.text
+        mod = [process_uri_config(l.strip()) for l in dec.split('\n') if l.strip()]
+        res = make_response(base64.b64encode('\n'.join(mod).encode('utf-8')).decode('utf-8'))
+        res.headers['Content-Type'] = 'text/plain; charset=utf-8'
+        copy_headers(resp.headers, res)
+        return res
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
@@ -375,6 +531,7 @@ function update_from_github() {
     if [ -f "$CONFIG_FILE" ]; then
         source "$CONFIG_FILE"
         echo -e "\e[33m[+] Rebuilding services with your saved configuration...\e[0m"
+        ensure_dependencies
         deploy_services
         echo -e "\n\e[32m[✔] Update completed! All 4 services are running with the latest core code.\e[0m"
     else
