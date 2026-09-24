@@ -113,30 +113,35 @@ def copy_headers(upstream_headers, flask_resp):
 def smart_router(path):
     user_agent = request.headers.get('User-Agent', '').lower()
     
-    # 1. Reject Browsers with Modern UI
+    # 1. Reject Browsers with Modern UI and Dynamic Timer
     if any(b in user_agent for b in ['mozilla', 'chrome', 'safari', 'edge', 'opera', 'applewebkit']):
         qs = request.query_string.decode('utf-8')
-        redirect_url = f"{SUB_BASE_URL}/{path}" + (f"?{qs}" if qs else "")
         
-        html_warning = f"""
+        # استخراج آی‌پی/دامنه سرور برای ارجاع به پورت ۵۰۰۰ (جلوگیری از لوپ و دانلود مستقیم فایل)
+        host = request.headers.get('Host', '').split(':')[0]
+        redirect_url = f"https://{host}:{PORT1}/{path}" + (f"?{qs}" if qs else "")
+        
+        # در اینجا حرف f را حذف کردیم تا با آکولادهای CSS تداخلی نداشته باشد
+        html_warning = """
         <!DOCTYPE html>
         <html dir="rtl" lang="fa">
         <head>
             <meta charset="utf-8">
             <title>هشدار سیستم</title>
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <meta http-equiv="refresh" content="7;url={{redirect_url}}" />
+            <meta http-equiv="refresh" content="7;url=__REDIRECT_URL__" />
             <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
             <style>
-                body {{ font-family: 'Vazirmatn', sans-serif; background-color: #f3f4f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }}
-                .container {{ background: #ffffff; max-width: 90%; width: 450px; padding: 40px 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; border-top: 6px solid #f59e0b; box-sizing: border-box; }}
-                .icon {{ font-size: 50px; margin-bottom: 10px; }}
-                h2 {{ color: #1f2937; font-size: 21px; margin-bottom: 20px; font-weight: 700; line-height: 1.4; }}
-                p {{ color: #4b5563; font-size: 15px; line-height: 1.7; margin-bottom: 15px; }}
-                .alert-box {{ background-color: #fef2f2; color: #991b1b; padding: 15px; border-radius: 8px; font-size: 14px; margin: 25px 0; border: 1px solid #fca5a5; line-height: 1.6; text-align: right; }}
-                .footer-text {{ color: #6b7280; font-size: 13px; margin-top: 25px; display: flex; align-items: center; justify-content: center; gap: 8px; }}
-                .spinner {{ width: 16px; height: 16px; border: 2px solid #e5e7eb; border-radius: 50%; border-top-color: #6b7280; animation: spin 1s linear infinite; }}
-                @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+                body { font-family: 'Vazirmatn', sans-serif; background-color: #f3f4f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                .container { background: #ffffff; max-width: 90%; width: 450px; padding: 40px 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; border-top: 6px solid #f59e0b; box-sizing: border-box; }
+                .icon { font-size: 50px; margin-bottom: 10px; }
+                h2 { color: #1f2937; font-size: 21px; margin-bottom: 20px; font-weight: 700; line-height: 1.4; }
+                p { color: #4b5563; font-size: 15px; line-height: 1.7; margin-bottom: 15px; }
+                .alert-box { background-color: #fef2f2; color: #991b1b; padding: 15px; border-radius: 8px; font-size: 14px; margin: 25px 0; border: 1px solid #fca5a5; line-height: 1.6; text-align: right; }
+                .footer-text { color: #6b7280; font-size: 13px; margin-top: 25px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: bold; }
+                .spinner { width: 16px; height: 16px; border: 2px solid #e5e7eb; border-radius: 50%; border-top-color: #6b7280; animation: spin 1s linear infinite; }
+                @keyframes spin { to { transform: rotate(360deg); } }
+                .timer { color: #dc2626; font-size: 17px; margin: 0 4px; }
             </style>
         </head>
         <body>
@@ -149,15 +154,27 @@ def smart_router(path):
                 </div>
                 <div class="footer-text">
                     <span class="spinner"></span>
-                    در حال انتقال به لینک ضعیف‌تر تا ۷ ثانیه دیگر...
+                    در حال انتقال به لینک ضعیف‌تر تا <span id="countdown" class="timer">7</span> ثانیه دیگر...
                 </div>
             </div>
+            
+            <script>
+                // اسکریپت شمارش معکوس زنده
+                var timeLeft = 7;
+                var elem = document.getElementById('countdown');
+                var timerId = setInterval(function() {
+                    timeLeft--;
+                    elem.textContent = timeLeft;
+                    if (timeLeft <= 0) {
+                        clearInterval(timerId);
+                        window.location.href = "__REDIRECT_URL__";
+                    }
+                }, 1000);
+            </script>
         </body>
         </html>
         """
-        # دقت کنید که متغیر redirect_url چون در یک فایل فرمت‌بندی شده f-string دو مرحله‌ای پر می‌شود، 
-        # نیاز به رسیدگی دقیق داشت. اما در اینجا مستقیم آن را با Replace جایگزین می‌کنیم تا خطای کلید رخ ندهد:
-        html_warning = html_warning.replace("{{redirect_url}}", redirect_url)
+        html_warning = html_warning.replace("__REDIRECT_URL__", redirect_url)
         return Response(html_warning, content_type='text/html; charset=utf-8')
 
     target_port = PORT1
@@ -195,7 +212,6 @@ def smart_router(path):
     except Exception as e:
         return jsonify({"error": f"Internal routing error: {str(e)}"}), 500
 EOF
-
     # ================== APP 1 (Port 5000) ==================
     cat << EOF > /opt/sub_server/app_1.py
 from flask import Flask, jsonify, request, make_response
