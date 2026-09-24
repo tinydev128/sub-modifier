@@ -29,8 +29,8 @@ function show_recommendations() {
     echo -e "\e[36m   Port: ${MASTER_PORT} (HTTPS Secure)\e[0m"
     echo -e "   Just give this ONE link to your users:"
     echo -e "   \e[33mhttps://YOUR_SERVER_IP:${MASTER_PORT}/sub/YOUR_PATH\e[0m"
-    echo -e "   \e[90m↳ Auto-routes happ, V2box, NPV -> Port ${PORT4} (Universal Fallback)\e[0m"
-    echo -e "   \e[90m↳ Auto-routes PattN / PattNG -> Port ${PORT1} (Path: /sub/)\e[0m"
+    echo -e "   \e[90m↳ Auto-routes happ, V2box, NPV -> Port ${PORT4} (Universal Fallback - JSON)\e[0m"
+    echo -e "   \e[90m↳ Auto-routes PattN / PattNG -> Port ${PORT1} (Path: /sub/ - Base64)\e[0m"
     echo -e "   \e[90m↳ Auto-routes v2rayN / v2rayNG -> Port ${PORT1} (Path: /json/)\e[0m"
     echo -e "   \e[90m↳ Auto-redirects Chrome/Safari to original panel with a warning page.\e[0m"
     
@@ -112,32 +112,40 @@ def copy_headers(upstream_headers, flask_resp):
 @app.route('/<path:path>')
 def smart_router(path):
     user_agent = request.headers.get('User-Agent', '').lower()
-    target_port = PORT1
-    target_path = "/" + path
     
-    if 'happ' in user_agent or 'v2box' in user_agent or 'npv' in user_agent:
-        target_port = PORT4
-    elif 'pattn' in user_agent:
-        target_port = PORT1
-        target_path = target_path.replace('/json/', '/sub/')
-        if not target_path.startswith('/sub/'):
-            target_path = '/sub/' + path
-    elif 'v2ray' in user_agent:
-        target_port = PORT1
-        target_path = target_path.replace('/sub/', '/json/')
-        if not target_path.startswith('/json/'):
-            target_path = '/json/' + path
-    elif any(b in user_agent for b in ['mozilla', 'chrome', 'safari', 'edge', 'opera', 'applewebkit']):
+    # 1. Reject Browsers
+    if any(b in user_agent for b in ['mozilla', 'chrome', 'safari', 'edge', 'opera', 'applewebkit']):
         qs = request.query_string.decode('utf-8')
         redirect_url = f"{SUB_BASE_URL}/{path}" + (f"?{qs}" if qs else "")
         html_warning = f"""
         <html dir="rtl" lang="fa"><head><meta charset="utf-8"><title>هشدار</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="refresh" content="7;url={redirect_url}" /><style>body {{ font-family: Tahoma; text-align: center; padding: 50px 20px; }} .box {{ max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; border-top: 5px solid #dc3545; }}</style></head><body><div class="box"><h2>⚠️ توجه: این لینک مخصوص مرورگر نیست!</h2><p>شما باید این لینک را در نرم‌افزارهای VPN وارد کنید.</p><p style="color: #6c757d; font-size: 14px;">در حال انتقال خودکار به پورت اصلی پنل تا ۷ ثانیه دیگر...</p></div></body></html>
         """
         return Response(html_warning, content_type='text/html; charset=utf-8')
-        
+
+    target_port = PORT1
+    target_path = "/" + path
+
+    # 2. PattN/PattNG -> Keep /sub/ (Base64) on PORT1
+    if 'pattn' in user_agent:
+        target_port = PORT1
+        target_path = target_path.replace('/json/', '/sub/')
+        if not target_path.startswith('/sub/'):
+            target_path = '/sub/' + path
+
+    # 3. All other clients -> Force /json/ 
+    else:
+        target_path = target_path.replace('/sub/', '/json/')
+        if not target_path.startswith('/json/'):
+            target_path = '/json/' + path
+            
+        if 'happ' in user_agent or 'v2box' in user_agent or 'npv' in user_agent:
+            target_port = PORT4
+        else:
+            target_port = PORT1
+
     qs = request.query_string.decode('utf-8')
-    # Use HTTPS for internal routing since local apps run on SSL
     internal_url = f"https://127.0.0.1:{target_port}{target_path}" + (f"?{qs}" if qs else "")
+    
     try:
         client_headers = {k: v for k, v in request.headers if k.lower() != 'host'}
         resp = requests.get(internal_url, headers=client_headers, timeout=10, verify=False)
@@ -208,7 +216,7 @@ def process_uri_config(uri):
         b_url, rem = uri.split("#", 1)
         if not any(k in urllib.parse.unquote(rem) for k in TARGET_KEYWORDS): return uri
         hp, qp = b_url.split("?", 1) if "?" in b_url else (b_url, "")
-        params = dict(urllib.parse.parse_qsl(qp))
+        params = dict(urllib.parse.parseqsl(qp))
         params.update({"fp": "unsafe", "cs": CIPHER_SUITES, "fm": json.dumps({"tcp": FINALMASK_TCP}), "allowInsecure": "0", "insecure": "0"})
         new_q = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
         return f"{hp}?{new_q}#{rem}"
@@ -446,7 +454,6 @@ def dyn_sub(sub_path):
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
-    # ساخت سرویس‌های اصلی (با SSL)
     for PORT in $PORT1 $PORT2 $PORT3 $PORT4; do
         if [ "$PORT" == "$PORT1" ]; then APP_NAME="app_1"; elif [ "$PORT" == "$PORT2" ]; then APP_NAME="app_2"; elif [ "$PORT" == "$PORT3" ]; then APP_NAME="app_3"; else APP_NAME="app_4"; fi
         cat << EOF > /etc/systemd/system/subserver${PORT}.service
@@ -466,7 +473,6 @@ EOF
         iptables -I INPUT -p tcp --dport ${PORT} -j ACCEPT 2>/dev/null
     done
 
-    # ساخت سرویس Master Router (پورت هوشمند هم اکنون با SSL است)
     cat << EOF > /etc/systemd/system/subserver_master.service
 [Unit]
 Description=Smart Router Sub Server (Master Port ${MASTER_PORT})
