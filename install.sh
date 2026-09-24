@@ -26,9 +26,9 @@ function show_recommendations() {
     echo -e "\e[32m             CLIENT USAGE GUIDE                  \e[0m"
     echo -e "\e[32m=================================================\e[0m"
     echo -e "\n\e[32m🌟 SMART ALL-IN-ONE PORT (Highly Recommended)\e[0m"
-    echo -e "\e[36m   Port: ${MASTER_PORT} (HTTP)\e[0m"
+    echo -e "\e[36m   Port: ${MASTER_PORT} (HTTPS Secure)\e[0m"
     echo -e "   Just give this ONE link to your users:"
-    echo -e "   \e[33mhttp://YOUR_SERVER_IP:${MASTER_PORT}/sub/YOUR_PATH\e[0m"
+    echo -e "   \e[33mhttps://YOUR_SERVER_IP:${MASTER_PORT}/sub/YOUR_PATH\e[0m"
     echo -e "   \e[90m↳ Auto-routes happ, V2box, NPV -> Port ${PORT4} (Universal Fallback)\e[0m"
     echo -e "   \e[90m↳ Auto-routes PattN / PattNG -> Port ${PORT1} (Path: /sub/)\e[0m"
     echo -e "   \e[90m↳ Auto-routes v2rayN / v2rayNG -> Port ${PORT1} (Path: /json/)\e[0m"
@@ -84,10 +84,13 @@ function deploy_services() {
         FINALMASK_TCP_HYBRID='[{"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["0", "104", "1"], "delays": ["0"], "maxSplit": "0", "length": "100-200", "interval": "10-20"}}, {"type": "fragment", "settings": {"packets": "1-1", "lengths": ["114", "1"], "delays": ["1"], "maxSplit": "11", "length": "10-20", "interval": "10-20"}}]'
     fi
 
-    # ================== APP MASTER ==================
+    # ================== APP MASTER (Smart Router) ==================
     cat << EOF > /opt/sub_server/app_master.py
 from flask import Flask, request, Response, make_response, jsonify
 import requests
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
 SUB_BASE_URL = "${SUB_BASE_URL}"
@@ -133,10 +136,11 @@ def smart_router(path):
         return Response(html_warning, content_type='text/html; charset=utf-8')
         
     qs = request.query_string.decode('utf-8')
-    internal_url = f"http://127.0.0.1:{target_port}{target_path}" + (f"?{qs}" if qs else "")
+    # Use HTTPS for internal routing since local apps run on SSL
+    internal_url = f"https://127.0.0.1:{target_port}{target_path}" + (f"?{qs}" if qs else "")
     try:
         client_headers = {k: v for k, v in request.headers if k.lower() != 'host'}
-        resp = requests.get(internal_url, headers=client_headers, timeout=10)
+        resp = requests.get(internal_url, headers=client_headers, timeout=10, verify=False)
         flask_resp = make_response(resp.content)
         flask_resp.status_code = resp.status_code
         flask_resp.headers['Content-Type'] = resp.headers.get('Content-Type', 'text/plain; charset=utf-8')
@@ -462,7 +466,7 @@ EOF
         iptables -I INPUT -p tcp --dport ${PORT} -j ACCEPT 2>/dev/null
     done
 
-    # ساخت سرویس Master Router (پورت هوشمند بدون SSL)
+    # ساخت سرویس Master Router (پورت هوشمند هم اکنون با SSL است)
     cat << EOF > /etc/systemd/system/subserver_master.service
 [Unit]
 Description=Smart Router Sub Server (Master Port ${MASTER_PORT})
@@ -471,13 +475,14 @@ After=network-online.target
 [Service]
 User=root
 WorkingDirectory=/opt/sub_server
-ExecStart=/usr/bin/python3 -m gunicorn --workers ${WORKERS} --bind 0.0.0.0:${MASTER_PORT} --timeout 60 app_master:app
+ExecStart=/usr/bin/python3 -m gunicorn --workers ${WORKERS} --bind 0.0.0.0:${MASTER_PORT} --certfile ${CERT_PATH} --keyfile ${KEY_PATH} --timeout 60 app_master:app
 Restart=always
 RestartSec=3
 [Install]
 WantedBy=multi-user.target
 EOF
     iptables -I INPUT -p tcp --dport ${MASTER_PORT} -j ACCEPT 2>/dev/null
+
     netfilter-persistent save >/dev/null 2>&1
 
     echo -e "\e[33m[+] Reloading & Restarting Services...\e[0m"
@@ -492,57 +497,41 @@ function update_version_manager() {
     echo -e "\e[36m             GITHUB VERSION MANAGER              \e[0m"
     echo -e "\e[36m=================================================\e[0m\n"
     
-    echo "  1) 🚀 Latest 'main' branch (Bleeding edge/Latest commits)"
-    echo "  2) 📦 Select a specific Release (Stable / Pre-release)"
-    echo "  0) ❌ Back to Main Menu"
-    echo -e "\e[36m=================================================\e[0m"
-    read -p "Select an option [0-2]: " dl_option </dev/tty
+    echo -e "\n\e[33m[+] Fetching available releases from GitHub...\e[0m"
+    tags=$(curl -s https://api.github.com/repos/${REPO_NAME}/releases | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
     
-    case $dl_option in
-        1)
-            DOWNLOAD_URL="https://raw.githubusercontent.com/${REPO_NAME}/main/install.sh"
-            ;;
-        2)
-            echo -e "\n\e[33m[+] Fetching available releases from GitHub...\e[0m"
-            tags=$(curl -s https://api.github.com/repos/${REPO_NAME}/releases | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-            
-            if [ -z "$tags" ]; then
-                echo -e "\e[31m[✖] No releases found or API rate limit exceeded.\e[0m"
-                read -p "Press Enter to return..." </dev/tty
-                main_menu
-                return
-            fi
-            
-            echo -e "\n\e[36mAvailable Releases:\e[0m"
-            declare -a tag_array
-            i=1
-            for tag in $tags; do
-                echo "  $i) $tag"
-                tag_array[$i]=$tag
-                ((i++))
-            done
-            
-            read -p "Select a version [1-$((i-1))]: " tag_choice </dev/tty
-            if [[ ! "$tag_choice" =~ ^[0-9]+$ ]] || [ "$tag_choice" -lt 1 ] || [ "$tag_choice" -ge "$i" ]; then
-                echo -e "\e[31m[✖] Invalid selection.\e[0m"
-                sleep 1
-                update_version_manager
-                return
-            fi
-            
-            SELECTED_TAG=${tag_array[$tag_choice]}
-            DOWNLOAD_URL="https://raw.githubusercontent.com/${REPO_NAME}/refs/tags/${SELECTED_TAG}/install.sh"
-            ;;
-        0)
+    if [ -z "$tags" ]; then
+        echo -e "\e[31m[✖] No releases found or API rate limit exceeded. Proceeding with Main branch...\e[0m"
+        sleep 2
+        if [ -f "$CONFIG_FILE" ]; then
             main_menu
-            return
-            ;;
-        *)
-            echo "Invalid option!"; sleep 1; update_version_manager; return
-            ;;
-    esac
-
-    echo -e "\n\e[33m[+] Downloading script from GitHub...\e[0m"
+        else
+            configure_and_install
+        fi
+        return
+    fi
+    
+    echo -e "\n\e[36mAvailable Releases:\e[0m"
+    declare -a tag_array
+    i=1
+    for tag in $tags; do
+        echo "  $i) $tag"
+        tag_array[$i]=$tag
+        ((i++))
+    done
+    
+    read -p "Select a version [1-$((i-1))]: " tag_choice </dev/tty
+    if [[ ! "$tag_choice" =~ ^[0-9]+$ ]] || [ "$tag_choice" -lt 1 ] || [ "$tag_choice" -ge "$i" ]; then
+        echo -e "\e[31m[✖] Invalid selection.\e[0m"
+        sleep 1
+        update_version_manager
+        return
+    fi
+    
+    SELECTED_TAG=${tag_array[$tag_choice]}
+    DOWNLOAD_URL="https://raw.githubusercontent.com/${REPO_NAME}/refs/tags/${SELECTED_TAG}/install.sh"
+    
+    echo -e "\n\e[33m[+] Downloading script (Tag: ${SELECTED_TAG}) from GitHub...\e[0m"
     TMP_SCRIPT="/tmp/sub_modifier_update.sh"
     curl -Ls "${DOWNLOAD_URL}?$(date +%s)" -o "$TMP_SCRIPT"
     
@@ -561,11 +550,28 @@ function update_version_manager() {
 
     if [ -f "$CONFIG_FILE" ]; then
         echo -e "\e[33m[+] Handing over to the NEW script version to rebuild services...\e[0m"
-        # خروج از اسکریپت قدیمی و اجرای اتوماتیک اسکریپت جدید (مهم‌ترین تغییر برای رفع باگ آپدیت)
         exec /usr/local/bin/sub-modifier --rebuild
     else
-        echo -e "\n\e[33m[!] No existing configuration found. Running initial setup...\e[0m"
-        exec /usr/local/bin/sub-modifier
+        echo -e "\n\e[33m[!] Initializing setup for the selected version...\e[0m"
+        exec /usr/local/bin/sub-modifier --force-install
+    fi
+}
+
+function first_run_menu() {
+    clear
+    echo -e "\e[36m=================================================\e[0m"
+    echo -e "\e[36m        SUB MODIFIER INITIAL INSTALLATION        \e[0m"
+    echo -e "\e[36m=================================================\e[0m\n"
+    echo "Which version do you want to install?"
+    echo "  1) 🚀 Latest Version (Main Branch - Bleeding Edge)"
+    echo "  2) 📦 Select a specific Release / Pre-release tag"
+    echo -e "\e[36m=================================================\e[0m"
+    read -p "Select an option [1-2, default: 1]: " first_opt </dev/tty
+    
+    if [ "$first_opt" == "2" ]; then
+        update_version_manager
+    else
+        configure_and_install
     fi
 }
 
@@ -588,7 +594,7 @@ function configure_and_install() {
     read -p "Enter SSL Privkey Path [$KEY_PATH]: " input </dev/tty; KEY_PATH=${input:-$KEY_PATH}
 
     echo -e "\n\e[36m================ PORT CONFIGURATION ================\e[0m"
-    echo -e "\e[32m🌟 Master Port:\e[0m Smart Auto-Router (Highly Recommended, No SSL)"
+    echo -e "\e[32m🌟 Master Port:\e[0m Smart Auto-Router (Highly Recommended, HTTPS)"
     read -p "🔗 Enter port for Smart Router [$MASTER_PORT]: " input </dev/tty; MASTER_PORT=${input:-$MASTER_PORT}
 
     echo -e "\n\e[32mService 1:\e[0m Primary Dual Service (URI /sub/ for PattNG, JSON /json/ for v2rayN/v2rayNG)"
@@ -693,7 +699,7 @@ function check_status() {
         STATUS=$(systemctl is-active ${SRV_NAME} 2>/dev/null)
         if [ "$STATUS" == "active" ]; then
             if [ "$PORT" == "$MASTER_PORT" ]; then
-                echo -e "  Port \e[36m${PORT} (Smart Router)\e[0m: \e[32m● Running (Active)\e[0m"
+                echo -e "  Port \e[36m${PORT} (Smart Router - HTTPS)\e[0m: \e[32m● Running (Active)\e[0m"
             else
                 echo -e "  Port \e[33m${PORT}\e[0m: \e[32m● Running (Active)\e[0m"
             fi
@@ -736,7 +742,7 @@ function main_menu() {
     echo -e "\e[36m       3x-ui Custom Sub Server Manager           \e[0m"
     echo -e "\e[36m=================================================\e[0m"
     echo "  1) ⚙️  Modify Configuration (Instant Update)"
-    echo "  2) 🚀 Change / Update Version (Main & Releases)"
+    echo "  2) 🚀 Change / Update Version (Releases/Tags)"
     echo "  3) 🔄 Switch Finalmask Profile (Current: ${FM_VERSION^^})"
     echo "  4) 📊 Check Service Status & RAM Usage"
     echo "  5) 📌 Show Client Recommendations (Smart Port)"
@@ -757,7 +763,7 @@ function main_menu() {
     esac
 }
 
-# Entry Point for automatic rebuilds after updating via GitHub
+# Entry Point handles internal rebuild flags to allow version switching
 if [ "$1" == "--rebuild" ]; then
     if [ -f "$CONFIG_FILE" ]; then
         source "$CONFIG_FILE"
@@ -768,10 +774,14 @@ if [ "$1" == "--rebuild" ]; then
         echo -e "\e[31m[✖] Config file not found. Cannot rebuild.\e[0m"
     fi
     exit 0
+elif [ "$1" == "--force-install" ]; then
+    configure_and_install
+    exit 0
 fi
 
+# Initial check for fresh installs
 if [ ! -f "$CONFIG_FILE" ]; then
-    configure_and_install
+    first_run_menu
 else
     main_menu
 fi
