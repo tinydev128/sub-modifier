@@ -34,7 +34,7 @@ Before using this tool, please keep the following rules in mind to ensure everyt
 Run the following command on your server:
 
 ```bash
-sudo curl -Ls https://raw.githubusercontent.com/tinydev128/sub-modifier/main/install.sh -o /usr/local/bin/sub-modifier && sudo chmod +x /usr/local/bin/sub-modifier && sub-modifier
+bash <(curl -Ls https://raw.githubusercontent.com/tinydev128/sub-modifier/main/install.sh)
 ```
 
 ### During installation, you will be prompted to provide:
