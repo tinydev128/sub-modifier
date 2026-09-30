@@ -117,11 +117,22 @@ def smart_router(path):
     if any(b in user_agent for b in ['mozilla', 'chrome', 'safari', 'edge', 'opera', 'applewebkit']):
         qs = request.query_string.decode('utf-8')
         
-        # استخراج آی‌پی/دامنه سرور برای ارجاع به پورت ۵۰۰۰ (جلوگیری از لوپ و دانلود مستقیم فایل)
+        # استخراج آی‌پی سرور برای ریدایرکت به پنل
         host = request.headers.get('Host', '').split(':')[0]
-        redirect_url = f"https://{host}:{PORT1}/{path}" + (f"?{qs}" if qs else "")
         
-        # در اینجا حرف f را حذف کردیم تا با آکولادهای CSS تداخلی نداشته باشد
+        # پیدا کردن پورت پنل اصلی (مثلا 2020) از متغیر SUB_BASE_URL
+        try:
+            panel_port = SUB_BASE_URL.split(':')[-1].split('/')[0]
+            if not panel_port.isdigit():
+                panel_port = "2020"
+        except:
+            panel_port = "2020"
+            
+        panel_scheme = "https" if "https" in SUB_BASE_URL else "http"
+        
+        # ساخت لینک نهایی به سمت پنل اصلی
+        redirect_url = f"{panel_scheme}://{host}:{panel_port}/{path}" + (f"?{qs}" if qs else "")
+        
         html_warning = """
         <!DOCTYPE html>
         <html dir="rtl" lang="fa">
@@ -212,6 +223,7 @@ def smart_router(path):
     except Exception as e:
         return jsonify({"error": f"Internal routing error: {str(e)}"}), 500
 EOF
+
     # ================== APP 1 (Port 5000) ==================
     cat << EOF > /opt/sub_server/app_1.py
 from flask import Flask, jsonify, request, make_response
@@ -478,33 +490,6 @@ def dyn_json(sub_path):
         mod = [process_cfg(c) for c in data] if isinstance(data, list) else process_cfg(data) if isinstance(data, dict) else data
         flask_resp = jsonify(mod); copy_headers(resp.headers, flask_resp)
         return flask_resp
-    except Exception as e: return jsonify({"error": str(e)}), 500
-
-def process_uri_config(uri):
-    if not uri.startswith("vless://"): return uri
-    try:
-        b_url, rem = uri.split("#", 1)
-        if not any(k in urllib.parse.unquote(rem) for k in TARGET_KEYWORDS): return uri
-        hp, qp = b_url.split("?", 1) if "?" in b_url else (b_url, "")
-        params = dict(urllib.parse.parse_qsl(qp))
-        params.update({"fp": "unsafe", "cs": CIPHER_SUITES, "fm": json.dumps({"tcp": FINALMASK_TCP_HYBRID}), "allowInsecure": "0", "insecure": "0"})
-        new_q = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
-        return f"{hp}?{new_q}#{rem}"
-    except: return uri
-
-@app.route('/sub/<path:sub_path>')
-def dyn_sub(sub_path):
-    try:
-        qs = request.query_string.decode('utf-8')
-        url = f"{SUB_BASE_URL}/sub/{sub_path}" + (f"?{qs}" if qs else "")
-        resp = requests.get(url, headers=get_client_headers(), verify=False, timeout=10)
-        raw = resp.text.strip(); raw += '=' * (-len(raw) % 4)
-        try: dec = base64.b64decode(raw).decode('utf-8')
-        except: dec = resp.text
-        mod = [process_uri_config(l.strip()) for l in dec.split('\n') if l.strip()]
-        res = make_response(base64.b64encode('\n'.join(mod).encode('utf-8')).decode('utf-8'))
-        res.headers['Content-Type'] = 'text/plain; charset=utf-8'; copy_headers(resp.headers, res)
-        return res
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
