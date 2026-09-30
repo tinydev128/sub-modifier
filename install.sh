@@ -32,7 +32,8 @@ function show_recommendations() {
     echo -e "   \e[33mhttps://YOUR_SERVER_IP:${MASTER_PORT}/sub/YOUR_PATH\e[0m"
     echo -e "   \e[90m↳ Auto-routes PattN / PattNG -> Base64 + Standard FM\e[0m"
     echo -e "   \e[90m↳ Auto-routes v2rayN / v2rayNG -> JSON + Standard FM\e[0m"
-    echo -e "   \e[90m↳ Auto-routes Happ, V2box, NPV, Incy & ALL OTHERS -> JSON + Hybrid FM\e[0m"
+    echo -e "   \e[90m↳ Auto-routes Flclash / Clash -> YAML + Mihomo Fragment\e[0m"
+    echo -e "   \e[90m↳ Auto-routes Happ, V2box, NPV, Incy -> JSON + Hybrid FM\e[0m"
     echo -e "   \e[90m↳ Serves a Minimalist 1-Click App Installer for Browsers.\e[0m"
     
     echo -e "\n\e[33m💡 LEGACY PORTS SUPPORT:\e[0m"
@@ -51,7 +52,7 @@ function ensure_dependencies() {
     done
 
     if [ $missing_deps -eq 0 ]; then
-        if ! python3 -c "import flask, requests, urllib3" &>/dev/null; then
+        if ! python3 -c "import flask, requests, urllib3, yaml" &>/dev/null; then
             missing_deps=1
         fi
     fi
@@ -60,8 +61,8 @@ function ensure_dependencies() {
         echo -e "\n\e[33m[+] Missing dependencies detected. Installing required packages...\e[0m"
         export DEBIAN_FRONTEND=noninteractive
         apt-get update -y
-        apt-get install -y python3 python3-pip iptables-persistent netfilter-persistent python3-flask python3-requests python3-urllib3 gunicorn curl jq
-        python3 -m pip install Flask requests gunicorn urllib3 --break-system-packages 2>/dev/null || python3 -m pip install Flask requests gunicorn urllib3 2>/dev/null
+        apt-get install -y python3 python3-pip iptables-persistent netfilter-persistent python3-flask python3-requests python3-urllib3 python3-yaml gunicorn curl jq
+        python3 -m pip install Flask requests gunicorn urllib3 PyYAML --break-system-packages 2>/dev/null || python3 -m pip install Flask requests gunicorn urllib3 PyYAML 2>/dev/null
         echo -e "\e[32m[✔] All dependencies are verified and ready.\e[0m"
     else
         echo -e "\n\e[32m[✔] All system & Python dependencies are already installed.\e[0m"
@@ -172,7 +173,7 @@ def smart_router(path):
     # 1. Reject Browsers (Strict Check: Accept HTML & No known VPN client in User-Agent)
     is_browser = False
     if 'text/html' in accept_header:
-        vpn_clients = ['v2ray', 'v2box', 'shadowrocket', 'pattn', 'happ', 'npv', 'incy', 'streisand', 'sing-box', 'clash', 'surge', 'loon']
+        vpn_clients = ['v2ray', 'v2box', 'shadowrocket', 'pattn', 'happ', 'npv', 'incy', 'streisand', 'sing-box', 'clash', 'surge', 'loon', 'flclash', 'mihomo', 'meta']
         if not any(vpn in user_agent for vpn in vpn_clients):
             is_browser = True
 
@@ -190,7 +191,6 @@ def smart_router(path):
         panel_scheme = "https" if "https" in SUB_BASE_URL else "http"
         panel_url = panel_scheme + "://" + host.split(':')[0] + ":" + panel_port + "/"
         
-        # Clean Path for Direct Panel Fetch
         clean_path = path
         if clean_path.startswith('sub/'): clean_path = clean_path[4:]
         elif clean_path.startswith('json/'): clean_path = clean_path[5:]
@@ -454,13 +454,14 @@ def smart_router(path):
     elif 'v2rayn' in user_agent:
         target_format = 'json'
         is_hybrid = False
+    elif any(c in user_agent for c in ['flclash', 'clash', 'mihomo', 'meta']):
+        target_format = 'yaml'
+        is_hybrid = True
         
-    # Clean the path to ignore whatever user requested (sub or json)
     clean_path = path
     if clean_path.startswith('sub/'): clean_path = clean_path[4:]
     elif clean_path.startswith('json/'): clean_path = clean_path[5:]
         
-    # Always fetch from panel with correct upstream logic
     panel_url = f"{SUB_BASE_URL}/json/{clean_path}" if target_format == 'json' else f"{SUB_BASE_URL}/sub/{clean_path}"
     if qs:
         if target_format == 'json' and 'view=raw' not in qs: panel_url += f"?{qs}&view=raw"
@@ -475,7 +476,31 @@ def smart_router(path):
     try:
         resp = requests.get(panel_url, headers=client_headers, verify=False, timeout=15)
         
-        if target_format == 'json':
+        if target_format == 'yaml':
+            try:
+                import yaml
+                data = yaml.safe_load(resp.text)
+                if data and 'proxies' in data:
+                    for p in data['proxies']:
+                        if any(k in p.get('name', '') for k in TARGET_KEYWORDS):
+                            if p.get('type') in ['vless', 'vmess', 'trojan']:
+                                p['client-fingerprint'] = 'chrome'
+                                if is_hybrid:
+                                    p['fragment'] = {"packets": "tlshello", "length": "100-200", "interval": "10-20"}
+                                else:
+                                    p['fragment'] = {"packets": "1-1", "length": "10-20", "interval": "10-20"}
+                    modified_yaml = yaml.dump(data, allow_unicode=True, sort_keys=False)
+                    res = make_response(modified_yaml)
+                    res.headers['Content-Type'] = resp.headers.get('Content-Type', 'text/yaml; charset=utf-8')
+                    copy_headers(resp.headers, res)
+                    return res
+            except Exception as e:
+                pass
+            res = make_response(resp.text)
+            copy_headers(resp.headers, res)
+            return res
+            
+        elif target_format == 'json':
             data = resp.json()
             mod_data = [process_cfg(c, is_hybrid) for c in data] if isinstance(data, list) else process_cfg(data, is_hybrid) if isinstance(data, dict) else data
             flask_resp = jsonify(mod_data)
@@ -500,7 +525,6 @@ def smart_router(path):
         return jsonify({"error": f"Upstream fetch error: {str(e)}"}), 500
 EOF
 
-    # ساخت متغیر BIND_ARGS برای گوش دادن همزمان روی تمام پورت‌های قدیمی
     BIND_ARGS="--bind 0.0.0.0:${MASTER_PORT}"
     for p in "$PORT1" "$PORT2" "$PORT3" "$PORT4" "$PORT5"; do
         if [ -n "$p" ]; then
@@ -510,7 +534,6 @@ EOF
     done
     iptables -I INPUT -p tcp --dport ${MASTER_PORT} -j ACCEPT 2>/dev/null
 
-    # ساخت تنها یک سرویس قدرتمند با پشتیبانی از پورت‌های چندگانه
     cat << EOF > /etc/systemd/system/subserver_master.service
 [Unit]
 Description=Smart Router Sub Server (Unified Master)
@@ -531,7 +554,6 @@ EOF
     echo -e "\e[33m[+] Reloading & Restarting Services...\e[0m"
     systemctl daemon-reload
     
-    # متوقف کردن و حذف سرویس‌های تودرتو قدیمی
     systemctl stop subserver5000 subserver5800 subserver5801 subserver5802 subserver5803 >/dev/null 2>&1
     systemctl disable subserver5000 subserver5800 subserver5801 subserver5802 subserver5803 >/dev/null 2>&1
     
