@@ -150,10 +150,11 @@ def smart_router(path):
         panel_scheme = "https" if "https" in SUB_BASE_URL else "http"
         panel_url = panel_scheme + "://" + host.split(':')[0] + ":" + panel_port + "/"
         
-        # Fetch Live Stats Internally
+        # Fetch Live Stats Internally (Direct to Panel without Deadlock)
         sub_info = {"upload": 0, "download": 0, "total": 0, "expire": 0}
         try:
-            r_stats = requests.head("http://127.0.0.1:" + str(PORT1) + "/" + path, headers={'User-Agent': 'v2rayN/6.42'}, timeout=3)
+            internal_api_url = f"{SUB_BASE_URL}/sub/{path}"
+            r_stats = requests.head(internal_api_url, headers={'User-Agent': 'v2rayN/6.42'}, timeout=3, verify=False)
             info_str = r_stats.headers.get('Subscription-Userinfo', '')
             if info_str:
                 for item in info_str.split(';'):
@@ -197,7 +198,7 @@ def smart_router(path):
             status_color = "#a78bfa"
             status_bg = "#a78bfa1a"
             
-        last_online = time.strftime('%Y-%m-%d, %H:%M:%S', time.localtime()) # Approximated based on current view
+        last_online = time.strftime('%Y-%m-%d, %H:%M:%S', time.localtime())
 
         html_landing = """
         <!DOCTYPE html>
@@ -434,7 +435,7 @@ def smart_router(path):
                         html.classList.remove('dark');
                         html.classList.add('light');
                         localStorage.setItem('theme', 'light');
-                        btn.innerText = "☀️️";
+                        btn.innerText = "☀";
                     } else {
                         html.classList.remove('light');
                         html.classList.add('dark');
