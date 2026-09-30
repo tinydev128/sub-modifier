@@ -32,7 +32,7 @@ function show_recommendations() {
     echo -e "   \e[90m↳ Auto-routes happ, V2box, NPV -> Port ${PORT4} (Universal Fallback - JSON)\e[0m"
     echo -e "   \e[90m↳ Auto-routes PattN / PattNG -> Port ${PORT1} (Path: /sub/ - Base64)\e[0m"
     echo -e "   \e[90m↳ Auto-routes v2rayN / v2rayNG -> Port ${PORT1} (Path: /json/)\e[0m"
-    echo -e "   \e[90m↳ Serves an identical 3x-ui 1-Click Installation Landing Page for Browsers.\e[0m"
+    echo -e "   \e[90m↳ Serves an identical 3x-ui Dashboard & 1-Click App Installer for Browsers.\e[0m"
     
     echo -e "\n\e[31m-------------------------------------------------\e[0m"
     echo -e "\e[31m⚠️ MANUAL DIRECT PORTS (If needed):\e[0m"
@@ -91,6 +91,7 @@ import requests
 import urllib3
 import urllib.parse
 import base64
+import time
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -101,13 +102,13 @@ PORT4 = ${PORT4}
 
 HOP_BY_HOP = {'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-encoding', 'content-length', 'server'}
 
-# Sanaei 3x-ui Official Base64 Icons (Extracted from UI)
+# Base64 App Icons
 IMG_V2BOX = "data:image/webp;base64,UklGRq4EAABXRUJQVlA4IKIEAABQGgCdASpgAGAAPkkijUUioiERzAb8KASEtIALZ7aafouh58jerHJ7ZefgPyV/LvUVf3b8hPzA5TrkX9G/un5l/3rWOv8b+Wmv6/4fpxfRHoY/K/7//0fcH/jn89/1v5yccB+xBq/+u4VGCCApRi/kh0UOtBeheVDbkae/vwehM0xE2nN9zxpT5EjDkAaHYVZwwYl0UoclA7PIzfMlchPY8aXYMuDvOEYYcsQHNqnLtxtb/KreGbVNajxK+2Uo6DvNSXjQHyVlvAqvxoDpw7KeYTkKxOGdau4YXQAA/v/iYxVbmNpeb9D2wZARRyc09bxGKq+TzVMQttgJlJv7v+rNNjPOtQpcmPfzjtFM5sZ/WE5vIZm1nPrIg4LI79GOGG4E8b75J/rAHgSkRpcFwV5rMOWBJprzzOKMHzqIvipffZBj8t5SDg2NuWUEB8x0h22h3KR6yk/ia2jbIV6mEY+ToZuWPjzcKUMd/5l6GyU+gh55FlF/gKU3bUdcA2RD8dTD3h80LOgLUq7iPujZn0o1ZvCT9V1QjliPrExc8Rto05ujiHbQgF2m8welwK5b5KNE861+iBao9GhziBe1Eww5QGhpolBqfmPqkuGuX+oMukf6uphzzyx+6yZ4EbEb4hyPiEfMnIsED9c7e+OUEMVGlbX5bJEWmqI5dWE3yGqZFU+hG1SxGi/06ch7LQoqVfs0UU83XuU8Y03x2WEa9CDCErzxU/aRNfAYv+1g5P5ORew8rnnyLQ3TavzJrb6TvEehWIn76QxCUJY9nbNsf/IQpA2uvDS3zg2u7ARfTa/+KzjvbZT4J347904OSMtduZaJzZcAMzJO4OworFZx32LSt7jb9lc8Nvu4cgmcq3oT5VIol1el4MUpWad8qlM/gNgj3u+oqvHxOcUlrvBVg7QCteFz4lmvjwN+ok19RKkk7aCAo/a5gDq9Iz9Tr/IUhsanu+FpLrivxM4g54S0fL3BWwAKGRL2wDfIPYb8gZ7IcOnjC0sa0EPVVRwFrXdFxqNCOV7PAVKeo2HINIz45yQKQOCllYJzEOt24nq/ReL5+Mbw//zPVcYwBdWcLLTtvpjyyJLCPH0hJPnQTQxQB4YJXLw/Y/vK9ei/v/Nycp+UIr/2MXJZEgWg6yGsfJWvM/ExIqtT7FWPB0vzbsGHaQIv/DO/m82m/zf8wWH95X9XUH5TqqDZXw6eX//dp+7IlD//JakMjS+vnXCzsiLF7ykxdHQ3f6+bIdRyV39665k+ohbXUVBfmJKJqdlofjjQQ1JQmFFNI0S1vFwOAJ3iVrn1cCzA6N/H4bZ4nthHatWCeuNzJlAfgy2ovCCaZm/eaExpPYAuYQfmyGiEyIWDuvefcJF/7x1hl03FSKb5HQ0x87KrHo3K1iBQNMQsADSxp1AHX7pNQHx7xx780TkXHeXiy3mWPHCzY89OQ6UsXfSWnCwCl0bU9yg1mHvdmNQhN2oyp/eIFsWSFa07EfTLcL0X3xaxBAlGAJKARlXFW+MSrABA0Ptqf0b5/6ehEfeXZ6cqLMpYzIkrjCvQ3lRZBchRAMQBcWkjGWi10yHNWF99AAAA"
 IMG_INCY = "data:image/webp;base64,UklGRrwGAABXRUJQVlA4ILAGAACwHACdASpgAGAAPkkejEOioaGWrVZ4KASEsgBnGAdo1kx2fuRxoe0Cc5+fN5R5gP4d/g/2q91X8ZvdN/evUA/tf9c60P0DvLX9lD9zvSyuhVeZ/nvB08WZYZdbnR3Og0APzd56H/J5jPoP2Cf5f/X/9+HHvnqt086DVsmNXKalaS/+bPh+Mp0kA85jXjVn8/VifydEHiBJEvC9KrLpP70Fc32ZP14LVDrakfQ6cjmAOoTLWBsj+rfyQFjgwDPZ0ltIkZ9sF3VAZagYj/Gm0bXi/4pKY+B8Ab3xWVAAHqyggxydXIziWuMiELcqiKPQAP7/OjGNYKmo9sLb/y/lkviOlPNfWzTmjtOSLgq73A+ujPx/0y3J9IiI34pacgKrA4ym9/nAqFPccrntb9/u1QWdPIV/YbzBV2fQdeuzHfxkQTjnyxE//FvmzEYVhbl1QFFYI/gGVa3EFbXg2v0wWF7e6XeRPkz7LDHT1TTvG0w58PtSXR3yCrYZQF4LZfexzXVSFE5711Cx+56oCtIpASQ4WvmX8Th2tbd5IaiBGFbMJ9B0PKE1I4dj/APT+8KsP0PQZv7qQ+6hE69GfDe4dty7HL9ifUfCiwBUHJp45HNGtFz4NsfvLS9FzaPrU136LfOWjnWZcCWX4DF/jtVQ2AOeaVovIkfYkHS3mqD9qA//GKHpEmFLLYt1854Rjq0dQ30GVXKnDA6uvSugPs90TzlPXsX3kwIpnbxFPYCGjNtAAKa6Rz6NuLDQI6P5R/i3Jn2JtVNZWQS1LNbXxy3rZnYl8ur7wHefu/BUOUxPeur9WZKf2jrwprLfgNqV2z6pJoI17+DN/GYZOnWBx1/NEH7kEtz+NUYZPf9XR22ZTb+j0PnHZed/1HA/qvodA/9dq23acA60mLROQ6LIq+ojNsEZ3pptFLYXVvuolWOEZteY3WnLeSmyVkDvfNjAuYi/2ZCBRo3jZqIOEVlReTmNGMVj/Vaa5imuPyUpe68pTu/MbYkaUA93M9VXQ8RoH0SGSkm9nWFAG+jsHM6b2W2XAyXJOZ5laXamDyX3q0sHA8sKLK69R6BoZPMw994ORUjlq+H7LzUXpUpGxA8SKs5TSFY0UwjxTfBTm3vYUkPuzq6/ngljqr0uZXA3I23Kh+9qscaTG2tueHHeoe2KqPVYu2bGrStgP0z+P85ueEQUuHk3fw+mILFJdPIbx4356RmMbZnGrzkNqqbrkO/1jitS0xpEhxbEs1/mRk5ajv3KcDPWcsZ4k+/ioax2Ih47/HasaNXNI2bZL227tjbh201yemr7uZoI2DdU9lXymGA0eajX5lpkMlJaYXsJUQBvDErRNe64tyE4ixQIMjSxyiakswA/0PsbUq+8HZAku9A7oh2scrCvtPi8b/r0OiBvU/1RL+7SsBLZQIuxBQOPgfrZvoy9yL6dpQWS+Kq5RF+/0fhgv7JKGo6dAjVJ1ffuq4GGI0ZhFUnmsPaajHC+wki3a7NxeO2eL4CghF64X91Rx86DkmQ9uxlAjMHJE+j50RcrsQsCR5I18lLoVsMGsP989o8fFuHZl71636p195kuw3Ct2lhbm+u2u0x5MIZGgnRvsrhwHOxuaKuSmKwGcxHel5v7Lu2IaAMPHb9lXOvztgiNbMc4Iz+mQXS9/TMHbyEa6xc7pQx11flUT+En2MWJ2ZNeX10PeK2mO+o3mfsDC0q4YcG1KqJmPZAKqNLSi/0AaxlTJx31QTuv3tWn9uEtVhO2bM/4+VlgO2SdH9xuqMOmYuLhppY6FUMhSMr4kS2IzUCtfTIHP5yY43m7RP9Cg0B7GbCpuUf0Ar23B+ZjGQwlp7V0NMP72taP0IfW5P4AGTvE0tbDtcigFySAABrQO1lGkfBm6C6m/6LQySQnwov3/1T/+jP7DvcUGXkSaIRpQENvox/YhCD9/5IQg/dROJWaH7xYP6NY61swltcz91o1iIR8vjWHpgdShTfd4Sxj0KS81kpDKFMGDkkLlQN4NaFayAvQExfL7K6OIw+anag5RF9R5wfeBw0Ru+Tk8Cy9f1ftckaoDLaBB1noMRVNzFFp7x2DtR++0cED2iGian2he4a3eL3ShRk6EcpOBjPGyayRS+peHgd/ZK+muvm4kL4TPn2zgQ+R/7l/8/CprutaCs0q6bs5+s4mSW1PG8iQAN7i8nVgv/nj9w0z2cZbEmH8TCnxXwHLNAl9uggbXAMHnfnCk9tl86evxtmDvAzFH8sgmciFqU3OqAyg11EgOKueU8kicN1oTExZeYQDbAAAAA=="
 IMG_SHADOWROCKET = "data:image/webp;base64,UklGRj4EAABXRUJQVlA4IDIEAABwFgCdASpgAGAAPkkijkUioiETKk08KASEoA1iPH/Hcq5wDtd4z8uXlX8T9QDxN+kB5gOgB6AH9V/wHWN+gB+wHpY/uj8Fn7gftd7UurV+ANCdy1GXt8GUnyZ8Cl8AeoGkpxo+hJnj+qSPyOpwM+zSw5Jp6WQHC3D94YW7MS9k3CCiWM8gysReo0fB4wTxBVXBPzPz6tIH7sDaT/cXgt4ytUMfl0TcAsiYw6l6fXVIwx6T90N0NoJxaEDAAAD+/cCWe4WmLhHGgleFZkjqkAvda/k4Lm7f+Ziiypvox/+AN+toyfzCyd0uHO5Lx3h3NHGTpqkihpJcpP2zGhVD7Bbbko+AVKDe64CQOlgDQKvwKkDGtRaxpciVuOcnK9WZbn1aTGeXcrq1cDnox8E9SKqkevYBwVj015ayf7+wubGdxxePmQXHoxap8YiJnD3lT/i89gEhbo5tCyW3N8cP2lI1IDUsDv1EphZrvn4ucc+moDGgpJnYCKxF4aNotzXI5KOntu+23Q6Ctf3zQx2oiQo3l9XOB+9yaeWOSULVCvDT/DzV8fPHiAHdb/GKoDY2eDALT2Jd9UQylyLEqh5XMv1gA3MngprDwDTzOzsultvxlHk3pwho6KPJxT2z9NRxmPCTi5E6Y6TBKEF2Sz9/981ru3ZqJ1H2k+tWRdjfWxrebrYSBCUXWhf3bHK7cmH2qXZuutm8fl0OWilh340vEdP+RvSgndA03DE0472H4ql6Lv6anRvmjt+9vrNm83S3KSAdTrNmHMIxm8pU8hBsdydLHkIA2vbiskLbsSgRi7l+EDWHKm+eTNzj3JzxNQa4OPmscddBVICjpfxDrc9GW6Twh3r16WXhbjxv1LxOOrqRfNo3kN5kFRnxrM9TJKP/WW/c345WIi+mhj/fAfjrDCQq5s4xNWD27r0DLq9EZc0m/j5Bngzqa0ec3Ie4s8PGQY77oU9fkQF7qT27/0QUYIMXV45+Zylqv536+qwdvDAlg+bKkKkuJZQl47f+vPqji+7nX+f0zkr4y5gxi4fY7YhJIWsWLif9XKQCtSTkTdbLVP4JDQ+Krbvy4wRQrbyWs9LfGCqFRc1y10sJ/1U3XxkIBmm/EX/N+Vq3rHjGmEdcfoCUQYj+nQk7u6jXKaZlyzjT+ttFMGDFbJTP+58lNbdEAvXLanzH7bLxOjfCeQEATeo/0bGIUpLIsBbBDjC6j1j6omt/HbX8wZqJ6fw59DTxn4OXyWxH1dl1glNra2Bp+scOq+G9dskeF9BEOEQGS59AnAOJ8XdBvzob6/6MJX2CeSzZhe12ia/Y3Hbuze7oQTELx1rpjSMXO1OFNRNfmu7tNriXnvv65+T95ctItPkiIL4vV3b3YzcDaXmFbI4F6OqD6qXOECtdkEVz7bSarFJAnXB8PxsPSO084YDFtci4AAA="
 IMG_STREISAND = "data:image/webp;base64,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"
 
-# Sanaei 3x-ui Official SVGs
+# Base64 SVGs
 SVG_V2RAYNG = """<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="m9.6185,41.4866V10.6142h-4.1185v-4.0722h10.2641v14.3936c.6957-.6404,1.2872-1.1794,1.8728-1.7248,3.5152-3.2745,7.0291-6.5504,10.5432-9.826.9416-.8777,1.8767-1.7624,2.8301-2.6271.1437-.1303.3712-.2375.5603-.2382,3.5668-.0136,10.9295,0,10.9295,0-10.9555,11.6366-21.8724,23.2736-32.8815,34.9672Z"/></svg>"""
 SVG_SINGBOX = """<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M40.7241,15.6976l-15.4896-10.8095c-.7416-.5175-1.7273-.5175-2.4689,0L7.2759,15.6976c-.9141.6379-.9141,1.9909,0,2.6288l15.4896,10.8095c.7416.5175,1.7273.5175,2.4689,0l15.4896-10.8095c.9141-.6379.9141-1.9909,0-2.6288Z"/><path d="M41.4096,17.012v13.976c0,.4977-.2285.9954-.6855,1.3144l-15.4896,10.8095c-.7416.5175-1.7273-.5175-2.4689,0l-15.4896-10.8095c-.457-.3189-.6855-.8167-.6855-1.3144h0s0-13.976,0-13.976"/><line x1="24" y1="29.524" x2="24" y2="43.5"/><path d="M11.8734,12.4893l18.3951,13.1335v3.8047c0,.6869.7673,1.0951,1.3369.7111l4.3991-2.9651c.2961-.1996.4735-.5332.4735-.8903v-4.9939l-18.3951-13.1335"/></svg>"""
 SVG_V2RAYTUN = """<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><rect x="5.5" y="5.5" width="37" height="37" rx="4" ry="4"/><polyline points="28.9436 11.2023 20.4652 36.7977 11.9867 11.2023"/><path d="M28.3091,29.0207c0-2.3774,2.1537-4.2518,4.6165-3.7785,1.6155.3105,2.9055,1.7076,3.0663,3.3447.1195,1.2178-.2658,2.4194-1.1069,3.1576-1.5583,1.3675-6.5759,5.053-6.5759,5.053h7.7042"/></svg>"""
@@ -116,24 +117,28 @@ SVG_HAPP = """<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-
 def copy_headers(upstream_headers, flask_resp):
     for k, v in upstream_headers.items():
         if k.lower() not in HOP_BY_HOP and k.lower() != 'content-type':
-            try:
-                v.encode('latin-1')
-                flask_resp.headers[k] = v
-            except UnicodeEncodeError:
-                flask_resp.headers[k] = v.encode('utf-8').decode('latin-1')
+            try: flask_resp.headers[k] = v.encode('latin-1').decode('latin-1')
+            except: flask_resp.headers[k] = v.encode('utf-8').decode('latin-1')
+
+def format_bytes(b):
+    if b == 0: return "0.00 B"
+    for x in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if b < 1024.0: return "{:.2f} {}".format(b, x)
+        b /= 1024.0
+    return "{:.2f} PB".format(b)
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def smart_router(path):
     user_agent = request.headers.get('User-Agent', '').lower()
     
-    # 1. Reject Browsers with 3x-ui Official Default Template (Dark Mode)
+    # 1. Reject Browsers with 3x-ui Official Default Dashboard & App Installer
     if any(b in user_agent for b in ['mozilla', 'chrome', 'safari', 'edge', 'opera', 'applewebkit']):
         qs = request.query_string.decode('utf-8')
         host = request.headers.get('Host', '')
         
-        # Link Generation for Apps
-        current_url = f"https://{host}/{path}" + (f"?{qs}" if qs else "")
+        # Link Generation
+        current_url = "https://" + host + "/" + path + ("?" + qs if qs else "")
         encoded_url = urllib.parse.quote(current_url, safe='')
         b64_url = base64.b64encode((current_url + "?flag=shadowrocket").encode('utf-8')).decode('utf-8')
         
@@ -141,78 +146,201 @@ def smart_router(path):
             panel_port = SUB_BASE_URL.split(':')[-1].split('/')[0]
             if not panel_port.isdigit(): panel_port = "2020"
         except: panel_port = "2020"
-        panel_scheme = "https" if "https" in SUB_BASE_URL else "http"
-        panel_url = f"{panel_scheme}://{host.split(':')[0]}:{panel_port}/"
         
+        panel_scheme = "https" if "https" in SUB_BASE_URL else "http"
+        panel_url = panel_scheme + "://" + host.split(':')[0] + ":" + panel_port + "/"
+        
+        # Fetch Live Stats Internally
+        sub_info = {"upload": 0, "download": 0, "total": 0, "expire": 0}
+        try:
+            r_stats = requests.head("http://127.0.0.1:" + str(PORT1) + "/" + path, headers={'User-Agent': 'v2rayN/6.42'}, timeout=3)
+            info_str = r_stats.headers.get('Subscription-Userinfo', '')
+            if info_str:
+                for item in info_str.split(';'):
+                    if '=' in item:
+                        k, v = item.strip().split('=')
+                        sub_info[k] = int(v)
+        except: pass
+
+        used_bytes = sub_info.get('upload', 0) + sub_info.get('download', 0)
+        total_bytes = sub_info.get('total', 0)
+        expire_time = sub_info.get('expire', 0)
+
+        used_str = format_bytes(used_bytes).split(' ')
+        used_val = used_str[0]
+        used_unit = used_str[1] if len(used_str) > 1 else ""
+
+        total_str = format_bytes(total_bytes) if total_bytes > 0 else "∞"
+        up_str = format_bytes(sub_info.get('upload', 0))
+        down_str = format_bytes(sub_info.get('download', 0))
+
+        if expire_time > 0:
+            expire_str = time.strftime('%Y-%m-%d, %H:%M:%S', time.localtime(expire_time))
+            days_left = str(max(0, int((expire_time - time.time()) / 86400)))
+        else:
+            expire_str = "No expiry"
+            days_left = "∞"
+
+        status_text = "Active"
+        status_color = "#10b981"
+        status_bg = "#10b9811a"
+        if total_bytes > 0 and used_bytes >= total_bytes:
+            status_text = "Depleted"
+            status_color = "#ef4444"
+            status_bg = "#ef44441a"
+        elif expire_time > 0 and time.time() > expire_time:
+            status_text = "Expired"
+            status_color = "#ef4444"
+            status_bg = "#ef44441a"
+        elif total_bytes == 0 and expire_time == 0:
+            status_text = "Unlimited"
+            status_color = "#a78bfa"
+            status_bg = "#a78bfa1a"
+            
+        last_online = time.strftime('%Y-%m-%d, %H:%M:%S', time.localtime()) # Approximated based on current view
+
         html_landing = """
         <!DOCTYPE html>
-        <html dir="rtl" lang="fa">
+        <html dir="ltr" lang="en">
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>نصب اشتراک - Subscription</title>
+            <title>Subscription Dashboard</title>
             <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
+            <script>
+                const getTheme = () => localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                document.documentElement.className = getTheme();
+            </script>
             <style>
-                body { background: radial-gradient(ellipse 120% 90% at 18% -10%, #1f1740 0%, #16171d 52%, #101116 100%); color: rgba(255,255,255,0.85); font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; min-height: 100vh; direction: rtl; }
-                .sub-aurora { pointer-events: none; position: fixed; inset: 0; overflow: hidden; z-index: 0; }
-                .sub-aurora-grid { background-image: linear-gradient(#ffffff09 1px, transparent 1px), linear-gradient(90deg, #ffffff09 1px, transparent 1px); background-size: 48px 48px; position: absolute; inset: 0; mask-image: radial-gradient(at 50% 30%,#000 20%,#0000 72%); -webkit-mask-image: radial-gradient(at 50% 30%,#000 20%,#0000 72%); }
-                .sub-aurora:before, .sub-aurora:after { content: ""; filter: blur(80px); border-radius: 50%; width: 70vmax; height: 70vmax; position: absolute; }
-                .sub-aurora:before { background: radial-gradient(circle, #8b5cf666 0%, transparent 65%); top: -22vmax; left: -16vmax; }
-                .sub-aurora:after { background: radial-gradient(circle, #22d3ee42 0%, transparent 65%); bottom: -24vmax; right: -18vmax; }
+                :root { 
+                    --bg: #f4f7f6; --card: #fff; --tile: #f8fafc; --border: #e2e8f0; 
+                    --text: #0f172a; --muted: #64748b; --accent: #7c3aed; --accent-bg: #7c3aed1a; 
+                    --ring-bg: #7c3aed26; --row-hover: #f1f5f9;
+                }
+                html.dark { 
+                    --bg: #101116; --card: #23252b9e; --tile: #2d2f37; --border: #ffffff14; 
+                    --text: #fff; --muted: #94a3b8; --accent: #a78bfa; --accent-bg: #a78bfa1a; 
+                    --ring-bg: #a78bfa26; --row-hover: #a78bfa1f;
+                }
                 
-                .sub-content { z-index: 1; padding: 32px 16px; position: relative; max-width: 600px; margin: 0 auto; }
-                .sub-card { background: #23252b9e; border: 1px solid #ffffff14; box-shadow: 0 1px 3px #0006, 0 24px 64px #6d28d93d; backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-radius: 20px; padding: 28px; position: relative;}
+                body { background: var(--bg); color: var(--text); font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; min-height: 100vh; transition: background 0.3s, color 0.3s; }
+                html.dark body { background: radial-gradient(ellipse 120% 90% at 18% -10%, #1f1740 0%, #16171d 52%, #101116 100%); }
                 
-                .alert-box { background: #2c1618; border: 1px solid #5b2526; border-radius: 8px; padding: 12px 16px; display: flex; align-items: flex-start; gap: 12px; margin-bottom: 24px; color: #dc4446; text-align: right;}
-                .alert-title { font-size: 16px; font-weight: 600; color: #e84749; margin-bottom: 4px; margin-top: 0;}
-                .alert-desc { font-size: 14px; color: rgba(255,255,255,0.85); line-height: 1.6; margin: 0; }
+                .sub-content { padding: 32px 16px; max-width: 800px; margin: 0 auto; position: relative; z-index: 1;}
+                .sub-card { background: var(--card); border: 1px solid var(--border); box-shadow: 0 4px 24px rgba(0,0,0,0.1); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); border-radius: 20px; padding: 28px; transition: 0.3s;}
+                html.dark .sub-card { box-shadow: 0 1px 3px #0006, 0 24px 64px #6d28d93d; }
                 
-                .sub-tabs { display: flex; gap: 16px; margin-bottom: 20px; border-bottom: 1px solid #ffffff14; padding-bottom: 0; direction: ltr; justify-content: flex-start;}
-                .tab-btn { background: transparent; color: rgba(255,255,255,0.45); border: none; font-size: 15px; cursor: pointer; padding: 12px 0; font-weight: 500; transition: 0.3s; position: relative; font-family: inherit; }
-                .tab-btn.active { color: #a78bfa; }
+                /* Header */
+                .sub-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 24px; }
+                .sub-brand { display: flex; align-items: center; gap: 12px; }
+                .sub-brand-mark { width: 44px; height: 44px; background: linear-gradient(135deg, #a78bfa, #22d3ee); color: #fff; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; }
+                .sub-brand-title { font-size: 18px; font-weight: 600; margin-bottom: 2px; }
+                .sub-brand-id { font-size: 12px; color: var(--muted); }
+                .theme-toggle { background: var(--tile); border: 1px solid var(--border); color: var(--text); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; transition: 0.3s; }
+                .theme-toggle:hover { background: var(--row-hover); color: var(--accent); }
+                
+                /* Announce */
+                .alert-box { background: #2c1618; border: 1px solid #5b2526; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 24px; color: rgba(255,255,255,0.85); text-align: right; direction: rtl;}
+                html:not(.dark) .alert-box { background: #e0e7ff; border-color: #c7d2fe; color: #3730a3; }
+                
+                /* Usage Dashboard */
+                .dashboard-grid { display: flex; gap: 32px; align-items: center; margin-bottom: 32px; flex-wrap: wrap;}
+                .circle-wrap { width: 140px; height: 140px; border-radius: 50%; border: 6px solid var(--ring-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text); flex-shrink:0; }
+                .circle-val { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+                .circle-lbl { font-size: 12px; color: var(--muted); }
+                
+                .usage-details { flex: 1; min-width: 200px; }
+                .usage-title { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+                .usage-big { font-size: 44px; font-weight: 700; background: linear-gradient(135deg, #c4b5fd, #67e8f9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; }
+                html:not(.dark) .usage-big { background: linear-gradient(135deg, #6d28d9, #0e7490); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+                .usage-unit { font-size: 18px; color: var(--muted); margin-left: 4px; }
+                
+                .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 20px; }
+                .stat-box { background: var(--tile); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+                .stat-lbl { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+                .stat-val { font-size: 14px; font-weight: 600; }
+                .status-badge { background: __STATUS_BG__; color: __STATUS_COLOR__; padding: 2px 8px; border-radius: 6px; font-size: 12px; }
+                
+                /* Apps */
+                .sub-tabs { display: flex; gap: 16px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+                .tab-btn { background: transparent; color: var(--muted); border: none; font-size: 15px; cursor: pointer; padding: 12px 0; font-weight: 500; position: relative; }
+                .tab-btn.active { color: var(--accent); }
                 .tab-btn.active::after { content: ""; position: absolute; bottom: -1px; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #a78bfa, #22d3ee); border-radius: 2px; }
+                html:not(.dark) .tab-btn.active::after { background: linear-gradient(90deg, #7c3aed, #06b6d4); }
                 
                 .tab-content { display: none; }
                 .tab-content.active { display: block; }
                 
-                .sub-app-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; direction: ltr;}
+                .sub-app-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
                 @media (max-width: 576px) { .sub-app-grid { grid-template-columns: minmax(0,1fr); } }
                 
-                .sub-row { background: #a78bfa0f; border: 1px solid #a78bfa1f; border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; text-decoration: none; transition: 0.2s; cursor: pointer; }
-                .sub-row:hover { background: #a78bfa1f; border-color: #a78bfa59; transform: translateY(-1px); box-shadow: 0 8px 20px -14px #8b5cf673; }
+                .sub-row { background: var(--accent-bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; text-decoration: none; transition: 0.2s; cursor: pointer; }
+                .sub-row:hover { background: var(--row-hover); border-color: var(--accent); transform: translateY(-1px); }
                 
-                .sub-app-logo { width: 32px; height: 32px; border-radius: 9px; object-fit: cover; box-shadow: 0 0 0 1px #a78bfa24; flex-shrink: 0; }
+                .sub-app-logo { width: 32px; height: 32px; border-radius: 9px; object-fit: cover; box-shadow: 0 0 0 1px var(--border); flex-shrink: 0; }
                 .sub-app-glyph { width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0; display:flex; align-items:center; justify-content:center; background: #292e42; color:#a78bfa;}
+                html:not(.dark) .sub-app-glyph { background: #f1f5f9; color: #7c3aed; }
                 .sub-app-glyph svg { width: 20px; height: 20px; }
-                .sub-app-name { color: rgba(255,255,255,0.85); font-size: 14px; flex: 1; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+                .sub-app-name { color: var(--text); font-size: 14px; flex: 1; font-weight: 500; }
+                .add-btn { background: var(--tile); color: var(--accent); border: 1px solid var(--border); padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; pointer-events: none; transition: 0.2s; }
                 
-                .add-btn { background: #a78bfa12; color: #a78bfa; border: 1px solid #a78bfa24; padding: 4px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; pointer-events: none; transition: 0.2s; }
-                .sub-row:hover .add-btn { background: #9179d8; color: #fff; border-color: transparent;}
+                .copy-section { margin-top: 24px; }
+                .copy-box { background: var(--accent-bg); border: 1px dashed var(--border); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; }
+                .copy-box span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--muted); font-family: monospace; }
+                .copy-btn { background: var(--tile); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
                 
-                .copy-section { margin-top: 24px; direction: ltr;}
-                .copy-box { background: #a78bfa0f; border: 1px dashed #a78bfa59; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; }
-                .copy-box span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: rgba(255,255,255,0.65); font-family: monospace; text-align: left; }
-                .copy-btn { background: #3b4261; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; }
-                .copy-btn:hover { background: #564a7c; }
-                
-                .footer-link { display: block; text-align: center; margin-top: 24px; color: #565f89; text-decoration: none; font-size: 13px; }
-                .footer-link:hover { color: #a78bfa; }
+                .footer-link { display: block; text-align: center; margin-top: 24px; color: var(--muted); text-decoration: none; font-size: 13px; }
+                .footer-link:hover { color: var(--accent); }
             </style>
         </head>
         <body>
-            <div class="sub-aurora"><span class="sub-aurora-grid"></span></div>
             <div class="sub-content">
                 <div class="sub-card">
+                    <!-- Header -->
+                    <div class="sub-header">
+                        <div class="sub-brand">
+                            <div class="sub-brand-mark">C</div>
+                            <div>
+                                <div class="sub-brand-title">CO VPN | KhodamDIRECT</div>
+                                <div class="sub-brand-id">__PATH__ - SmartRouter</div>
+                            </div>
+                        </div>
+                        <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+                    </div>
                     
+                    <!-- Alert -->
                     <div class="alert-box">
-                        <span style="font-size: 24px; line-height: 1;">⚠️</span>
-                        <div>
-                            <h4 class="alert-title">لینک را در مرورگر باز نکنید!</h4>
-                            <p class="alert-desc">این صفحه صرفاً جهت نصب اشتراک است. لطفاً نرم‌افزار خود را از لیست زیر انتخاب کنید تا کانفیگ به صورت خودکار نصب شود.</p>
+                        <span style="font-size: 20px;">ℹ️</span>
+                        <div>درحال حاضر آپدیت و یا تغييرات ساختاری برنامه ریزی نشده است. در صورت به وجود آمدن هر مشکلی اطلاع رسانی خواهد شد.</div>
+                    </div>
+                    
+                    <!-- Dashboard -->
+                    <div class="dashboard-grid">
+                        <div class="circle-wrap">
+                            <div class="circle-val">∞</div>
+                            <div class="circle-lbl">Unlimited</div>
+                        </div>
+                        <div class="usage-details">
+                            <div class="usage-title">Usage</div>
+                            <div>
+                                <span class="usage-big">__USED_VAL__</span><span class="usage-unit">__USED_UNIT__</span>
+                            </div>
+                            <div class="usage-title" style="margin-top:4px;">Unlimited</div>
                         </div>
                     </div>
                     
-                    <div class="sub-tabs">
+                    <div class="stats-grid">
+                        <div class="stat-box"><div class="stat-lbl">Days left</div><div class="stat-val">__DAYS__</div></div>
+                        <div class="stat-box"><div class="stat-lbl">Expiry</div><div class="stat-val">__EXP__</div></div>
+                        <div class="stat-box"><div class="stat-lbl">Status</div><div class="stat-val"><span class="status-badge">__STATUS__</span></div></div>
+                        <div class="stat-box"><div class="stat-lbl">Downloaded</div><div class="stat-val">__DOWN__</div></div>
+                        <div class="stat-box"><div class="stat-lbl">Uploaded</div><div class="stat-val">__UP__</div></div>
+                        <div class="stat-box"><div class="stat-lbl">Total quota</div><div class="stat-val">__TOTAL__</div></div>
+                        <div class="stat-box"><div class="stat-lbl">Last Online</div><div class="stat-val">__ONLINE__</div></div>
+                    </div>
+                    
+                    <!-- Apps -->
+                    <div class="sub-tabs" style="margin-top: 30px;">
                         <button class="tab-btn active" onclick="switchTab('android', this)">Android</button>
                         <button class="tab-btn" onclick="switchTab('ios', this)">iOS</button>
                     </div>
@@ -280,7 +408,7 @@ def smart_router(path):
                                 <span class="add-btn">Add</span>
                             </a>
                             <a href="foxray://install-sub?url=__ENCODED_URL__&name=Premium%20Sub" class="sub-row">
-                                <span class="sub-app-glyph" style="font-size: 16px;">🦊</span>
+                                <span class="sub-app-glyph" style="font-size: 16px; background: transparent; box-shadow: 0 0 0 1px var(--border);">🦊</span>
                                 <span class="sub-app-name">FoXray</span>
                                 <span class="add-btn">Add</span>
                             </a>
@@ -288,41 +416,78 @@ def smart_router(path):
                     </div>
                     
                     <div class="copy-section">
-                        <div style="font-size:12px; color:rgba(255,255,255,0.45); margin-bottom:8px;">Manual Setup (Universal)</div>
                         <div class="copy-box">
                             <span id="subLink">__CURRENT_URL__</span>
                             <button class="copy-btn" onclick="copyText(this)">Copy</button>
                         </div>
                     </div>
                     
-                    <a href="__PANEL_URL__" class="footer-link">ورود به پنل کاربری اصلی →</a>
+                    <a href="__PANEL_URL__" class="footer-link">Dashboard Login →</a>
                 </div>
             </div>
     
             <script>
+                function toggleTheme() {
+                    const html = document.documentElement;
+                    const btn = document.querySelector('.theme-toggle');
+                    if(html.classList.contains('dark')) {
+                        html.classList.remove('dark');
+                        html.classList.add('light');
+                        localStorage.setItem('theme', 'light');
+                        btn.innerText = "☀️️";
+                    } else {
+                        html.classList.remove('light');
+                        html.classList.add('dark');
+                        localStorage.setItem('theme', 'dark');
+                        btn.innerText = "🌙";
+                    }
+                }
+                
+                // Initialize button icon
+                document.querySelector('.theme-toggle').innerText = document.documentElement.classList.contains('dark') ? "🌙" : "☀️";
+                
                 function switchTab(tabId, btn) {
                     document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
                     document.querySelectorAll('.tab-btn').forEach(e => e.classList.remove('active'));
                     document.getElementById(tabId).classList.add('active');
                     btn.classList.add('active');
                 }
+                
                 function copyText(btn) {
                     var txt = document.getElementById("subLink").innerText;
                     navigator.clipboard.writeText(txt);
                     btn.innerText = "Copied!";
                     btn.style.background = "#10b981";
-                    setTimeout(() => { btn.innerText = "Copy"; btn.style.background = "#3b4261"; }, 2000);
+                    btn.style.color = "#fff";
+                    setTimeout(() => { 
+                        btn.innerText = "Copy"; 
+                        btn.style.background = "var(--tile)";
+                        btn.style.color = "var(--text)";
+                    }, 2000);
                 }
             </script>
         </body>
         </html>
         """
         
-        # Injection
+        # Injections
         html_landing = html_landing.replace("__CURRENT_URL__", current_url)
         html_landing = html_landing.replace("__ENCODED_URL__", encoded_url)
         html_landing = html_landing.replace("__B64_URL__", b64_url)
         html_landing = html_landing.replace("__PANEL_URL__", panel_url)
+        html_landing = html_landing.replace("__PATH__", path)
+        
+        html_landing = html_landing.replace("__USED_VAL__", used_val)
+        html_landing = html_landing.replace("__USED_UNIT__", used_unit)
+        html_landing = html_landing.replace("__DAYS__", days_left)
+        html_landing = html_landing.replace("__EXP__", expire_str)
+        html_landing = html_landing.replace("__STATUS__", status_text)
+        html_landing = html_landing.replace("__STATUS_BG__", status_bg)
+        html_landing = html_landing.replace("__STATUS_COLOR__", status_color)
+        html_landing = html_landing.replace("__DOWN__", down_str)
+        html_landing = html_landing.replace("__UP__", up_str)
+        html_landing = html_landing.replace("__TOTAL__", total_str)
+        html_landing = html_landing.replace("__ONLINE__", last_online)
         
         html_landing = html_landing.replace("__IMG_V2BOX__", IMG_V2BOX)
         html_landing = html_landing.replace("__IMG_INCY__", IMG_INCY)
@@ -357,7 +522,7 @@ def smart_router(path):
             target_port = PORT1
 
     qs = request.query_string.decode('utf-8')
-    internal_url = f"http://127.0.0.1:{target_port}{target_path}" + (f"?{qs}" if qs else "")
+    internal_url = "http://127.0.0.1:" + str(target_port) + target_path + ("?" + qs if qs else "")
     
     try:
         client_headers = {k: v for k, v in request.headers if k.lower() != 'host'}
@@ -368,7 +533,7 @@ def smart_router(path):
         copy_headers(resp.headers, flask_resp)
         return flask_resp
     except Exception as e:
-        return jsonify({"error": f"Internal routing error: {str(e)}"}), 500
+        return jsonify({"error": "Internal routing error: " + str(e)}), 500
 EOF
 
     # ================== APP 1 (Port 5000) ==================
@@ -667,7 +832,6 @@ def dyn_sub(sub_path):
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
-    # ساخت سرویس‌های داخلی (بدون SSL)
     for PORT in $PORT1 $PORT2 $PORT3 $PORT4; do
         if [ "$PORT" == "$PORT1" ]; then APP_NAME="app_1"; elif [ "$PORT" == "$PORT2" ]; then APP_NAME="app_2"; elif [ "$PORT" == "$PORT3" ]; then APP_NAME="app_3"; else APP_NAME="app_4"; fi
         cat << EOF > /etc/systemd/system/subserver${PORT}.service
@@ -687,7 +851,6 @@ EOF
         iptables -I INPUT -p tcp --dport ${PORT} -j ACCEPT 2>/dev/null
     done
 
-    # ساخت سرویس Master Router (با SSL)
     cat << EOF > /etc/systemd/system/subserver_master.service
 [Unit]
 Description=Smart Router Sub Server (Master Port ${MASTER_PORT})
