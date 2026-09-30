@@ -27,18 +27,17 @@ function show_recommendations() {
     echo -e "\e[32m             CLIENT USAGE GUIDE                  \e[0m"
     echo -e "\e[32m=================================================\e[0m"
     echo -e "\n\e[32m🌟 SMART ALL-IN-ONE PORT (Highly Recommended)\e[0m"
-    echo -e "\e[36m   Port: ${MASTER_PORT} (HTTPS Secure - Multi-threaded)\e[0m"
+    echo -e "\e[36m   Port: ${MASTER_PORT} (HTTPS Secure - Direct Fetch)\e[0m"
     echo -e "   Just give this ONE link to your users:"
     echo -e "   \e[33mhttps://YOUR_SERVER_IP:${MASTER_PORT}/sub/YOUR_PATH\e[0m"
-    echo -e "   \e[90m↳ Auto-routes happ -> Base64 + Hybrid FM\e[0m"
-    echo -e "   \e[90m↳ Auto-routes V2box, NPV -> JSON + Hybrid FM\e[0m"
     echo -e "   \e[90m↳ Auto-routes PattN / PattNG -> Base64 + Standard FM\e[0m"
     echo -e "   \e[90m↳ Auto-routes v2rayN / v2rayNG -> JSON + Standard FM\e[0m"
-    echo -e "   \e[90m↳ Serves an identical 3x-ui Dashboard & 1-Click App Installer for Browsers.\e[0m"
+    echo -e "   \e[90m↳ Auto-routes Happ, V2box, NPV, Incy & ALL OTHERS -> JSON + Hybrid FM\e[0m"
+    echo -e "   \e[90m↳ Serves a Minimalist 1-Click App Installer for Browsers.\e[0m"
     
     echo -e "\n\e[33m💡 LEGACY PORTS SUPPORT:\e[0m"
-    echo -e "   Ports \e[33m${PORT1}, ${PORT2}, ${PORT3}, ${PORT4}, ${PORT5}\e[0m are bound to the Smart Router."
-    echo -e "   Existing users will continue to update their subs flawlessly!"
+    echo -e "   Ports \e[33m${PORT1}, ${PORT2}, ${PORT3}, ${PORT4}, ${PORT5}\e[0m are natively bound to the Smart Router."
+    echo -e "   Existing users will continue to update their subs flawlessly with the new logic!"
     echo -e "\e[32m=================================================\e[0m\n"
 }
 
@@ -83,7 +82,7 @@ function deploy_services() {
         FINALMASK_TCP_HYBRID='[{"type": "fragment", "settings": {"packets": "tlshello", "lengths": ["0", "104", "1"], "delays": ["0"], "maxSplit": "0", "length": "100-200", "interval": "10-20"}}, {"type": "fragment", "settings": {"packets": "1-1", "lengths": ["114", "1"], "delays": ["1"], "maxSplit": "11", "length": "10-20", "interval": "10-20"}}]'
     fi
 
-# ================== UNIFIED MASTER APP (Smart Router) ==================
+# ================== UNIFIED MASTER APP (Minimalist 1-Click Installer) ==================
     cat << EOF > /opt/sub_server/app_master.py
 from flask import Flask, request, Response, make_response, jsonify
 import requests
@@ -102,6 +101,7 @@ TARGET_KEYWORDS = ${TARGET_PY}
 CIPHER_SUITES = "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
 FINALMASK_TCP = ${FINALMASK_TCP}
 FINALMASK_TCP_HYBRID = ${FINALMASK_TCP_HYBRID}
+
 HOP_BY_HOP = {'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-encoding', 'content-length', 'server'}
 
 MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
@@ -114,6 +114,7 @@ IMG_INCY = "data:image/webp;base64,UklGRrwGAABXRUJQVlA4ILAGAACwHACdASpgAGAAPkkej
 IMG_SHADOWROCKET = "data:image/webp;base64,UklGRj4EAABXRUJQVlA4IDIEAABwFgCdASpgAGAAPkkijkUioiETKk08KASEoA1iPH/Hcq5wDtd4z8uXlX8T9QDxN+kB5gOgB6AH9V/wHWN+gB+wHpY/uj8Fn7gftd7UurV+ANCdy1GXt8GUnyZ8Cl8AeoGkpxo+hJnj+qSPyOpwM+zSw5Jp6WQHC3D94YW7MS9k3CCiWM8gysReo0fB4wTxBVXBPzPz6tIH7sDaT/cXgt4ytUMfl0TcAsiYw6l6fXVIwx6T90N0NoJxaEDAAAD+/cCWe4WmLhHGgleFZkjqkAvda/k4Lm7f+Ziiypvox/+AN+toyfzCyd0uHO5Lx3h3NHGTpqkihpJcpP2zGhVD7Bbbko+AVKDe64CQOlgDQKvwKkDGtRaxpciVuOcnK9WZbn1aTGeXcrq1cDnox8E9SKqkevYBwVj015ayf7+wubGdxxePmQXHoxap8YiJnD3lT/i89gEhbo5tCyW3N8cP2lI1IDUsDv1EphZrvn4ucc+moDGgpJnYCKxF4aNotzXI5KOntu+23Q6Ctf3zQx2oiQo3l9XOB+9yaeWOSULVCvDT/DzV8fPHiAHdb/GKoDY2eDALT2Jd9UQylyLEqh5XMv1gA3MngprDwDTzOzsultvxlHk3pwho6KPJxT2z9NRxmPCTi5E6Y6TBKEF2Sz9/981ru3ZqJ1H2k+tWRdjfWxrebrYSBCUXWhf3bHK7cmH2qXZuutm8fl0OWilh340vEdP+RvSgndA03DE0472H4ql6Lv6anRvmjt+9vrNm83S3KSAdTrNmHMIxm8pU8hBsdydLHkIA2vbiskLbsSgRi7l+EDWHKm+eTNzj3JzxNQa4OPmscddBVICjpfxDrc9GW6Twh3r16WXhbjxv1LxOOrqRfNo3kN5kFRnxrM9TJKP/WW/c345WIi+mhj/fAfjrDCQq5s4xNWD27r0DLq9EZc0m/j5Bngzqa0ec3Ie4s8PGQY77oU9fkQF7qT27/0QUYIMXV45+Zylqv536+qwdvDAlg+bKkKkuJZQl47f+vPqji+7nX+f0zkr4y5gxi4fY7YhJIWsWLif9XKQCtSTkTdbLVP4JDQ+Krbvy4wRQrbyWs9LfGCqFRc1y10sJ/1U3XxkIBmm/EX/N+Vq3rHjGmEdcfoCUQYj+nQk7u6jXKaZlyzjT+ttFMGDFbJTP+58lNbdEAvXLanzH7bLxOjfCeQEATeo/0bGIUpLIsBbBDjC6j1j6omt/HbX8wZqJ6fw59DTxn4OXyWxH1dl1glNra2Bp+scOq+G9dskeF9BEOEQGS59AnAOJ8XdBvzob6/6MJX2CeSzZhe12ia/Y3Hbuze7oQTELx1rpjSMXO1OFNRNfmu7tNriXnvv65+T95ctItPkiIL4vV3b3YzcDaXmFbI4F6OqD6qXOECtdkEVz7bSarFJAnXB8PxsPSO084YDFtci4AAA="
 IMG_STREISAND = "data:image/webp;base64,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"
 
+# Base64 SVGs
 SVG_V2RAYNG = """<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="m9.6185,41.4866V10.6142h-4.1185v-4.0722h10.2641v14.3936c.6957-.6404,1.2872-1.1794,1.8728-1.7248,3.5152-3.2745,7.0291-6.5504,10.5432-9.826.9416-.8777,1.8767-1.7624,2.8301-2.6271.1437-.1303.3712-.2375.5603-.2382,3.5668-.0136,10.9295,0,10.9295,0-10.9555,11.6366-21.8724,23.2736-32.8815,34.9672Z"/></svg>"""
 SVG_SINGBOX = """<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M40.7241,15.6976l-15.4896-10.8095c-.7416-.5175-1.7273-.5175-2.4689,0L7.2759,15.6976c-.9141.6379-.9141,1.9909,0,2.6288l15.4896,10.8095c.7416.5175,1.7273.5175,2.4689,0l15.4896-10.8095c.9141-.6379.9141-1.9909,0-2.6288Z"/><path d="M41.4096,17.012v13.976c0,.4977-.2285.9954-.6855,1.3144l-15.4896,10.8095c-.7416.5175-1.7273-.5175-2.4689,0l-15.4896-10.8095c-.457-.3189-.6855-.8167-.6855-1.3144h0s0-13.976,0-13.976"/><line x1="24" y1="29.524" x2="24" y2="43.5"/><path d="M11.8734,12.4893l18.3951,13.1335v3.8047c0,.6869.7673,1.0951,1.3369.7111l4.3991-2.9651c.2961-.1996.4735-.5332.4735-.8903v-4.9939l-18.3951-13.1335"/></svg>"""
 SVG_V2RAYTUN = """<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><rect x="5.5" y="5.5" width="37" height="37" rx="4" ry="4"/><polyline points="28.9436 11.2023 20.4652 36.7977 11.9867 11.2023"/><path d="M28.3091,29.0207c0-2.3774,2.1537-4.2518,4.6165-3.7785,1.6155.3105,2.9055,1.7076,3.0663,3.3447.1195,1.2178-.2658,2.4194-1.1069,3.1576-1.5583,1.3675-6.5759,5.053-6.5759,5.053h7.7042"/></svg>"""
@@ -124,13 +125,6 @@ def copy_headers(upstream_headers, flask_resp):
         if k.lower() not in HOP_BY_HOP and k.lower() != 'content-type':
             try: flask_resp.headers[k] = v.encode('latin-1').decode('latin-1')
             except: flask_resp.headers[k] = v.encode('utf-8').decode('latin-1')
-
-def format_bytes(b):
-    if b == 0: return "0.00 B"
-    for x in ['B', 'KB', 'MB', 'GB', 'TB']:
-        if b < 1024.0: return "{:.2f} {}".format(b, x)
-        b /= 1024.0
-    return "{:.2f} PB".format(b)
 
 def process_cfg(cfg, is_hybrid):
     if not any(k in cfg.get("remarks", "") for k in TARGET_KEYWORDS): return cfg
@@ -172,9 +166,16 @@ def process_uri(uri, is_hybrid):
 def smart_router(path):
     user_agent = request.headers.get('User-Agent', '').lower()
     qs = request.query_string.decode('utf-8')
+    accept_header = request.headers.get('Accept', '').lower()
     
-    # ================== 1. DASHBOARD LOGIC (BROWSERS) ==================
-    if any(b in user_agent for b in ['mozilla', 'chrome', 'safari', 'edge', 'opera', 'applewebkit']):
+    # 1. Reject Browsers (Strict Check: Accept HTML & No known VPN client in User-Agent)
+    is_browser = False
+    if 'text/html' in accept_header:
+        vpn_clients = ['v2ray', 'v2box', 'shadowrocket', 'pattn', 'happ', 'npv', 'incy', 'streisand', 'sing-box', 'clash', 'surge', 'loon']
+        if not any(vpn in user_agent for vpn in vpn_clients):
+            is_browser = True
+
+    if is_browser:
         host = request.headers.get('Host', '')
         current_url = "https://" + host + "/" + path + ("?" + qs if qs else "")
         encoded_url = urllib.parse.quote(current_url, safe='')
@@ -187,47 +188,6 @@ def smart_router(path):
         
         panel_scheme = "https" if "https" in SUB_BASE_URL else "http"
         panel_url = panel_scheme + "://" + host.split(':')[0] + ":" + panel_port + "/"
-        
-        # Direct Fetch to avoid deadlock
-        sub_info = {"upload": 0, "download": 0, "total": 0, "expire": 0}
-        try:
-            r_stats = requests.head(f"{SUB_BASE_URL}/sub/{path}", headers={'User-Agent': 'v2rayN/6.42'}, timeout=3, verify=False)
-            info_str = r_stats.headers.get('Subscription-Userinfo', '')
-            if info_str:
-                for item in info_str.split(';'):
-                    if '=' in item:
-                        k, v = item.strip().split('=')
-                        sub_info[k] = int(v)
-        except: pass
-
-        used_bytes = sub_info.get('upload', 0) + sub_info.get('download', 0)
-        total_bytes = sub_info.get('total', 0)
-        expire_time = sub_info.get('expire', 0)
-
-        used_str = format_bytes(used_bytes).split(' ')
-        used_val = used_str[0]
-        used_unit = used_str[1] if len(used_str) > 1 else ""
-
-        total_str = format_bytes(total_bytes) if total_bytes > 0 else "∞"
-        up_str = format_bytes(sub_info.get('upload', 0))
-        down_str = format_bytes(sub_info.get('download', 0))
-
-        if expire_time > 0:
-            expire_str = time.strftime('%Y-%m-%d, %H:%M:%S', time.localtime(expire_time))
-            days_left = str(max(0, int((expire_time - time.time()) / 86400)))
-        else:
-            expire_str = "No expiry"
-            days_left = "∞"
-
-        status_text, status_color, status_bg = "Active", "#10b981", "#10b9811a"
-        if total_bytes > 0 and used_bytes >= total_bytes:
-            status_text, status_color, status_bg = "Depleted", "#ef4444", "#ef44441a"
-        elif expire_time > 0 and time.time() > expire_time:
-            status_text, status_color, status_bg = "Expired", "#ef4444", "#ef44441a"
-        elif total_bytes == 0 and expire_time == 0:
-            status_text, status_color, status_bg = "Unlimited", "#a78bfa", "#a78bfa1a"
-            
-        last_online = time.strftime('%Y-%m-%d, %H:%M:%S', time.localtime())
 
         html_landing = """
         <!DOCTYPE html>
@@ -235,7 +195,7 @@ def smart_router(path):
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Subscription Dashboard</title>
+            <title>CO VPN</title>
             <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
             <script>
                 const getTheme = () => localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -245,41 +205,26 @@ def smart_router(path):
                 :root { 
                     --bg: #f4f7f6; --card: #fff; --tile: #f8fafc; --border: #e2e8f0; 
                     --text: #0f172a; --muted: #64748b; --accent: #7c3aed; --accent-bg: #7c3aed1a; 
-                    --ring-bg: #7c3aed26; --row-hover: #f1f5f9;
+                    --row-hover: #f1f5f9;
                 }
                 html.dark { 
                     --bg: #101116; --card: #23252b9e; --tile: #2d2f37; --border: #ffffff14; 
                     --text: #fff; --muted: #94a3b8; --accent: #a78bfa; --accent-bg: #a78bfa1a; 
-                    --ring-bg: #a78bfa26; --row-hover: #a78bfa1f;
+                    --row-hover: #a78bfa1f;
                 }
                 body { background: var(--bg); color: var(--text); font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; min-height: 100vh; transition: background 0.3s, color 0.3s; }
                 html.dark body { background: radial-gradient(ellipse 120% 90% at 18% -10%, #1f1740 0%, #16171d 52%, #101116 100%); }
-                .sub-content { padding: 32px 16px; max-width: 800px; margin: 0 auto; position: relative; z-index: 1;}
+                .sub-content { padding: 32px 16px; max-width: 600px; margin: 0 auto; position: relative; z-index: 1;}
                 .sub-card { background: var(--card); border: 1px solid var(--border); box-shadow: 0 4px 24px rgba(0,0,0,0.1); backdrop-filter: blur(24px) saturate(180%); border-radius: 20px; padding: 28px; transition: 0.3s;}
                 html.dark .sub-card { box-shadow: 0 1px 3px #0006, 0 24px 64px #6d28d93d; }
                 .sub-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 24px; }
                 .sub-brand { display: flex; align-items: center; gap: 12px; }
                 .sub-brand-mark { width: 44px; height: 44px; background: linear-gradient(135deg, #a78bfa, #22d3ee); color: #fff; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; }
                 .sub-brand-title { font-size: 18px; font-weight: 600; margin-bottom: 2px; }
-                .sub-brand-id { font-size: 12px; color: var(--muted); }
                 .theme-toggle { background: var(--tile); border: 1px solid var(--border); color: var(--text); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; transition: 0.3s; }
                 .theme-toggle:hover { background: var(--row-hover); color: var(--accent); }
                 .alert-box { background: #2c1618; border: 1px solid #5b2526; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 24px; color: rgba(255,255,255,0.85); text-align: right; direction: rtl;}
                 html:not(.dark) .alert-box { background: #e0e7ff; border-color: #c7d2fe; color: #3730a3; }
-                .dashboard-grid { display: flex; gap: 32px; align-items: center; margin-bottom: 32px; flex-wrap: wrap;}
-                .circle-wrap { width: 140px; height: 140px; border-radius: 50%; border: 6px solid var(--ring-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text); flex-shrink:0; }
-                .circle-val { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
-                .circle-lbl { font-size: 12px; color: var(--muted); }
-                .usage-details { flex: 1; min-width: 200px; }
-                .usage-title { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
-                .usage-big { font-size: 44px; font-weight: 700; background: linear-gradient(135deg, #c4b5fd, #67e8f9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; }
-                html:not(.dark) .usage-big { background: linear-gradient(135deg, #6d28d9, #0e7490); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-                .usage-unit { font-size: 18px; color: var(--muted); margin-left: 4px; }
-                .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 20px; }
-                .stat-box { background: var(--tile); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
-                .stat-lbl { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-                .stat-val { font-size: 14px; font-weight: 600; }
-                .status-badge { background: __STATUS_BG__; color: __STATUS_COLOR__; padding: 2px 8px; border-radius: 6px; font-size: 12px; }
                 .sub-tabs { display: flex; gap: 16px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
                 .tab-btn { background: transparent; color: var(--muted); border: none; font-size: 15px; cursor: pointer; padding: 12px 0; font-weight: 500; position: relative; }
                 .tab-btn.active { color: var(--accent); }
@@ -312,10 +257,7 @@ def smart_router(path):
                     <div class="sub-header">
                         <div class="sub-brand">
                             <div class="sub-brand-mark">C</div>
-                            <div>
-                                <div class="sub-brand-title">CO VPN | KhodamDIRECT</div>
-                                <div class="sub-brand-id">__PATH__ - SmartRouter</div>
-                            </div>
+                            <div class="sub-brand-title">CO VPN</div>
                         </div>
                         <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
                     </div>
@@ -326,33 +268,8 @@ def smart_router(path):
                         <div>درحال حاضر آپدیت و یا تغييرات ساختاری برنامه ریزی نشده است. در صورت به وجود آمدن هر مشکلی اطلاع رسانی خواهد شد.</div>
                     </div>
                     
-                    <!-- Dashboard -->
-                    <div class="dashboard-grid">
-                        <div class="circle-wrap">
-                            <div class="circle-val">∞</div>
-                            <div class="circle-lbl">Unlimited</div>
-                        </div>
-                        <div class="usage-details">
-                            <div class="usage-title">Usage</div>
-                            <div>
-                                <span class="usage-big">__USED_VAL__</span><span class="usage-unit">__USED_UNIT__</span>
-                            </div>
-                            <div class="usage-title" style="margin-top:4px;">Unlimited</div>
-                        </div>
-                    </div>
-                    
-                    <div class="stats-grid">
-                        <div class="stat-box"><div class="stat-lbl">Days left</div><div class="stat-val">__DAYS__</div></div>
-                        <div class="stat-box"><div class="stat-lbl">Expiry</div><div class="stat-val">__EXP__</div></div>
-                        <div class="stat-box"><div class="stat-lbl">Status</div><div class="stat-val"><span class="status-badge">__STATUS__</span></div></div>
-                        <div class="stat-box"><div class="stat-lbl">Downloaded</div><div class="stat-val">__DOWN__</div></div>
-                        <div class="stat-box"><div class="stat-lbl">Uploaded</div><div class="stat-val">__UP__</div></div>
-                        <div class="stat-box"><div class="stat-lbl">Total quota</div><div class="stat-val">__TOTAL__</div></div>
-                        <div class="stat-box"><div class="stat-lbl">Last Online</div><div class="stat-val">__ONLINE__</div></div>
-                    </div>
-                    
                     <!-- Apps -->
-                    <div class="sub-tabs" style="margin-top: 30px;">
+                    <div class="sub-tabs">
                         <button class="tab-btn active" onclick="switchTab('android', this)">Android</button>
                         <button class="tab-btn" onclick="switchTab('ios', this)">iOS</button>
                     </div>
@@ -486,18 +403,7 @@ def smart_router(path):
         html_landing = html_landing.replace("__ENCODED_URL__", encoded_url)
         html_landing = html_landing.replace("__B64_URL__", b64_url)
         html_landing = html_landing.replace("__PANEL_URL__", panel_url)
-        html_landing = html_landing.replace("__PATH__", path)
-        html_landing = html_landing.replace("__USED_VAL__", used_val)
-        html_landing = html_landing.replace("__USED_UNIT__", used_unit)
-        html_landing = html_landing.replace("__DAYS__", days_left)
-        html_landing = html_landing.replace("__EXP__", expire_str)
-        html_landing = html_landing.replace("__STATUS__", status_text)
-        html_landing = html_landing.replace("__STATUS_BG__", status_bg)
-        html_landing = html_landing.replace("__STATUS_COLOR__", status_color)
-        html_landing = html_landing.replace("__DOWN__", down_str)
-        html_landing = html_landing.replace("__UP__", up_str)
-        html_landing = html_landing.replace("__TOTAL__", total_str)
-        html_landing = html_landing.replace("__ONLINE__", last_online)
+        
         html_landing = html_landing.replace("__IMG_V2BOX__", IMG_V2BOX)
         html_landing = html_landing.replace("__IMG_INCY__", IMG_INCY)
         html_landing = html_landing.replace("__IMG_SHADOWROCKET__", IMG_SHADOWROCKET)
@@ -512,34 +418,36 @@ def smart_router(path):
 
     # ================== 2. SMART ROUTER LOGIC (CLIENTS) ==================
     target_format = 'json'
-    is_hybrid = False
+    is_hybrid = True  # Default for 'All Others'
     
     if 'pattn' in user_agent:
         target_format = 'base64'
         is_hybrid = False
-    elif 'happ' in user_agent:
-        target_format = 'base64'
-        is_hybrid = True
-    elif 'v2box' in user_agent or 'npv' in user_agent:
-        target_format = 'json'
-        is_hybrid = True
-    else:
+    elif 'v2rayn' in user_agent:
         target_format = 'json'
         is_hybrid = False
+        
+    # Clean the path to ignore whatever user requested (sub or json)
+    clean_path = path
+    if clean_path.startswith('sub/'): clean_path = clean_path[4:]
+    elif clean_path.startswith('json/'): clean_path = clean_path[5:]
+        
+    # Always fetch from panel with correct upstream logic
+    panel_url = f"{SUB_BASE_URL}/json/{clean_path}" if target_format == 'json' else f"{SUB_BASE_URL}/sub/{clean_path}"
+    if qs:
+        if target_format == 'json' and 'view=raw' not in qs: panel_url += f"?{qs}&view=raw"
+        else: panel_url += f"?{qs}"
+    else:
+        if target_format == 'json': panel_url += "?view=raw"
 
     client_headers = {k: v for k, v in request.headers if k.lower() not in ['host', 'accept-encoding']}
     if 'user-agent' not in [k.lower() for k in client_headers]:
         client_headers['User-Agent'] = 'v2rayN/6.42'
 
     try:
+        resp = requests.get(panel_url, headers=client_headers, verify=False, timeout=15)
+        
         if target_format == 'json':
-            url = f"{SUB_BASE_URL}/json/{path}"
-            if qs: 
-                url += f"?{qs}&view=raw" if "view=raw" not in qs else f"?{qs}"
-            else:
-                url += "?view=raw"
-                
-            resp = requests.get(url, headers=client_headers, verify=False, timeout=15)
             data = resp.json()
             mod_data = [process_cfg(c, is_hybrid) for c in data] if isinstance(data, list) else process_cfg(data, is_hybrid) if isinstance(data, dict) else data
             flask_resp = jsonify(mod_data)
@@ -547,8 +455,6 @@ def smart_router(path):
             return flask_resp
             
         else:
-            url = f"{SUB_BASE_URL}/sub/{path}" + (f"?{qs}" if qs else "")
-            resp = requests.get(url, headers=client_headers, verify=False, timeout=15)
             raw = resp.text.strip()
             raw += '=' * (-len(raw) % 4)
             try: dec = base64.b64decode(raw).decode('utf-8')
