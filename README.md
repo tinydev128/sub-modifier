@@ -1,75 +1,57 @@
-# 3x-ui Custom Sub Server Manager
+# ⚡ 3x-ui Custom Sub Modifier & Smart Router
 
-An automated bash script that sets up an advanced subscription modification server for 3x-ui panels. This tool deploys three robust Python-based services (running via Gunicorn) that dynamically modify your 3x-ui subscription configs by applying custom Fragments (Finalmask), CipherSuites, and SniSpoof configurations based on specific keywords.
+A highly optimized, cross-platform subscription management system designed specifically for **3x-ui** panels. It acts as an intelligent middleware, modifying subscription configurations on-the-fly to bypass DPI, inject fragments, and enforce cipher suites based on specific keywords, all while dynamically adapting to the user's client app.
 
-## ⚠️ Prerequisites & Usage Notes
+## ✨ Key Features
 
-Before using this tool, please keep the following rules in mind to ensure everything works correctly:
+* **🧠 Smart Router (All-in-One Link):** Share just one link with your users! The built-in dispatcher detects the client (`v2rayN`, `V2box`, `happ`, `PattN`, `NPV`, etc.) and automatically serves the correct format (JSON or Base64) with the optimal routing rules.
+* **🛡️ DPI Bypass Engine (Finalmask):** Automatically injects advanced fragment rules into your outbound proxy connections to evade Deep Packet Inspection. Includes both **Standard** and **Hybrid** schemas to support strict Sing-box cores.
+* **🔒 Cipher Suites Override:** Enforces secure and specific TLS cipher suites to mask traffic fingerprints.
+* **🌐 Browser Protection:** Displays a modern, beautifully designed Persian warning page if a user attempts to open the sub link in a web browser, preventing configuration loops.
+* **🔄 Built-in Version Manager:** Easily update to the latest GitHub release or fallback to stable tags using the built-in CLI tool.
 
-1. **JSON Subscription Must Be Enabled:** Ensure you have navigated to your 3x-ui panel settings and enabled the **JSON Subscription** feature. The `/json/` paths will not work without it.
-2. **Sub Base URL Binding:** If you input `127.0.0.1` (e.g., `https://127.0.0.1:2020`) as your Sub Base URL during setup, your 3x-ui panel's subscription service must be configured to listen on that exact IP address.
-3. **How to Use the Links:** To provide the modified subscription to your clients, take your original subscription link and replace the port with the modified ones, OR map them as a reverse proxy directly in the panel.
-   - *Example:* If your original JSON sub is `https://8.8.8.8:2020/json/MyKey`, it should become `https://8.8.8.8:5000/json/MyKey` (for Port 5000 JSON).
+---
 
-## 🚀 Features
+## 🚀 Installation
 
-- **Automated Deployment:** Installs all dependencies (Python3, Flask, Gunicorn, iptables-persistent) and configures systemd services automatically.
-- **Interactive CLI:** Accessible via the `sub-modifier` command on your terminal for easy setup, updates, and uninstallation.
-- **Dynamic Configuration Injection:** Applies modifications only to configs whose remarks contain your predefined keywords.
-- **Load Balancer Support:** Correctly processes nested load balancer configurations (e.g., tags starting with `bal-`).
-- **Gunicorn Integration:** Ensures high availability and prevents server freezes from malicious scanners.
-
-## 📌 Architecture & Client Routing
-
-| Port | Path | Profile Type | Target Client(s) | Description |
-| :---: | :---: | :--- | :--- | :--- |
-| **5000** | `/sub/...` | Base64 URI | **PattNG / PattN** | Direct base64 URI sub with injected `fm` and `cs` query parameters. |
-| **5000** | `/json/...` | Standard JSON | **v2rayN / v2rayNG** | Streamlined JSON config stripped of regional bloatware. |
-| **5800** | `/json/...` | SniSpoof Profile | **V2box** | Isolates SNI spoofing; eliminates fragment/cipher conflicts. |
-| **5801** | `/json/...` | Strict Fallback | **Strict Xray Clients** | Strict standard Xray schema (`vnext` array formatting). |
-| **5802** | `/json/...` | **🛡️ Universal Fallback** | **All Incompatible Clients / NPV Tunnel** | **Universal hybrid fallback.** Resolves core parsing failures and parser rejections. |
-
-## 🛠 Installation
-
-Run the following command on your server:
-
+Run the following command as `root` on your Ubuntu server:
 ```bash
 bash <(curl -Ls https://raw.githubusercontent.com/tinydev128/sub-modifier/main/install.sh)
 ```
 
-### During installation, you will be prompted to provide:
+During the initial installation, you will be prompted to choose between the **Latest Version (Main Branch)** or a **Specific Stable Release (Tags)**.
 
-🌐Your 3x-ui Panel URL (e.g., https://127.0.0.1:2020).
+---
 
-➿Comma-separated keywords (e.g., CFCDN,CFXCDN,CDN Best).
+## ⚙️ Architecture & How It Works
 
-〰️The SniSpoof IP (e.g., 104.19.230.21).
+The system deploys multiple lightweight Flask applications managed by Gunicorn. The Master Port acts as a reverse proxy, parsing the `User-Agent` and routing the request to the appropriate backend service:
 
-🌐Paths to your SSL certificate (fullchain.pem) and private key (privkey.pem).
+1. **Master Port (Default: 8000):** The smart, HTTPS-enabled dispatcher.
+2. **Port 5000 (Service 1):** Primary service serving Standard JSON for `v2rayN` and raw Base64 for `PattNG`.
+3. **Port 5800 (Service 2):** Dedicated SniSpoof profile tailored specifically for `V2box`.
+4. **Port 5801 (Service 3):** Strict fallback with the Xray `vnext` schema.
+5. **Port 5802 (Service 4):** Universal Fallback with a **Hybrid Fragment Engine** to prevent parsing crashes in strict cores like `NPV` and `happ`.
 
-🌐Preferred ports for the three services.
+*Note: Unmodified configurations (without your specified keywords) remain completely intact, ensuring that custom setups like Reality or specific Tunnels are never disrupted.*
 
-## ⚙️ Management
-Once installed, you can launch the interactive management menu at any time by simply typing:
+---
 
-```bash
-sudo sub-modifier
-```
+## 💻 CLI Usage & Management
 
-### The menu allows you to:
+After installation, simply type the following command in your terminal at any time to access the interactive management menu:
 
-🔘Update your configurations (Panel URL, keywords, ports, etc.).
+sub-modifier
 
-🔘View the client usage guide.
+**From the interactive menu, you can:**
+* Modify your panel's base URL, target keywords, spoof IP, and internal ports instantly.
+* Switch between different Finalmask profiles (New/Old).
+* Change or update the script version directly from GitHub releases.
+* Check the live status of all Python services and monitor RAM usage.
+* Completely uninstall the tool and clean up your server.
 
-❌Completely uninstall the tool from your server.
+---
 
-## 📬 Contact
-
-If you have any questions, suggestions, or need support regarding this project, feel free to reach out:
-
-- **Email:** [omartinydev128@atomicmail.io](mailto:omartinydev128@atomicmail.io)
-- **GitHub:** [@tinydev128](https://github.com/tinydev128)
-
-## 📜 License
-This project is licensed under the MIT License. See the LICENSE file for details.
+## ⚠️ Prerequisites
+1. **JSON Subscription** must be enabled in your 3x-ui panel settings.
+2. You need a valid SSL certificate (Fullchain and Privkey) for the HTTPS-enabled Smart Router.
