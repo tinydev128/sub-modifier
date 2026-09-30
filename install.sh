@@ -92,6 +92,7 @@ import base64
 import time
 import copy
 import json
+import re
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -188,6 +189,35 @@ def smart_router(path):
         
         panel_scheme = "https" if "https" in SUB_BASE_URL else "http"
         panel_url = panel_scheme + "://" + host.split(':')[0] + ":" + panel_port + "/"
+        
+        # Clean Path for Direct Panel Fetch
+        clean_path = path
+        if clean_path.startswith('sub/'): clean_path = clean_path[4:]
+        elif clean_path.startswith('json/'): clean_path = clean_path[5:]
+        
+        # Dynamic Announcement Fetch from 3x-ui
+        announce_text = "درحال حاضر آپدیت و یا تغییرات ساختاری برنامه ریزی نشده است. در صورت به وجود آمدن هر مشکلی اطلاع رسانی خواهد شد."
+        try:
+            r_html = requests.get(f"{SUB_BASE_URL}/sub/{clean_path}", headers={'User-Agent': 'Mozilla/5.0'}, timeout=3, verify=False)
+            match = re.search(r'"announce":"(.*?)"', r_html.text)
+            if match:
+                raw_announce = match.group(1)
+                if '\\\\u' in raw_announce or '\\u' in raw_announce:
+                    announce_text = raw_announce.encode('utf-8').decode('unicode_escape')
+                elif raw_announce:
+                    announce_text = raw_announce
+                else:
+                    announce_text = ""
+        except: pass
+
+        alert_box_html = ""
+        if announce_text:
+            alert_box_html = f"""
+            <div class="alert-box">
+                <span style="font-size: 20px;">ℹ️</span>
+                <div>{announce_text}</div>
+            </div>
+            """
 
         html_landing = """
         <!DOCTYPE html>
@@ -220,7 +250,7 @@ def smart_router(path):
                 .sub-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 24px; }
                 .sub-brand { display: flex; align-items: center; gap: 12px; }
                 .sub-brand-mark { width: 44px; height: 44px; background: linear-gradient(135deg, #a78bfa, #22d3ee); color: #fff; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; }
-                .sub-brand-title { font-size: 18px; font-weight: 600; margin-bottom: 2px; }
+                .sub-brand-title { font-size: 20px; font-weight: 700; margin: 0; }
                 .theme-toggle { background: var(--tile); border: 1px solid var(--border); color: var(--text); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; transition: 0.3s; }
                 .theme-toggle:hover { background: var(--row-hover); color: var(--accent); }
                 .alert-box { background: #2c1618; border: 1px solid #5b2526; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 24px; color: rgba(255,255,255,0.85); text-align: right; direction: rtl;}
@@ -263,10 +293,7 @@ def smart_router(path):
                     </div>
                     
                     <!-- Alert -->
-                    <div class="alert-box">
-                        <span style="font-size: 20px;">ℹ️</span>
-                        <div>درحال حاضر آپدیت و یا تغييرات ساختاری برنامه ریزی نشده است. در صورت به وجود آمدن هر مشکلی اطلاع رسانی خواهد شد.</div>
-                    </div>
+                    __ALERT_BOX__
                     
                     <!-- Apps -->
                     <div class="sub-tabs">
@@ -399,6 +426,7 @@ def smart_router(path):
         """
         
         # HTML Injections
+        html_landing = html_landing.replace("__ALERT_BOX__", alert_box_html)
         html_landing = html_landing.replace("__CURRENT_URL__", current_url)
         html_landing = html_landing.replace("__ENCODED_URL__", encoded_url)
         html_landing = html_landing.replace("__B64_URL__", b64_url)
@@ -418,7 +446,7 @@ def smart_router(path):
 
     # ================== 2. SMART ROUTER LOGIC (CLIENTS) ==================
     target_format = 'json'
-    is_hybrid = True  # Default for 'All Others'
+    is_hybrid = True  # Default for 'All Others' like happ, v2box, npv, incy, etc.
     
     if 'pattn' in user_agent:
         target_format = 'base64'
