@@ -32,7 +32,7 @@ function show_recommendations() {
     echo -e "   \e[90m↳ Auto-routes happ, V2box, NPV -> Port ${PORT4} (Universal Fallback - JSON)\e[0m"
     echo -e "   \e[90m↳ Auto-routes PattN / PattNG -> Port ${PORT1} (Path: /sub/ - Base64)\e[0m"
     echo -e "   \e[90m↳ Auto-routes v2rayN / v2rayNG -> Port ${PORT1} (Path: /json/)\e[0m"
-    echo -e "   \e[90m↳ Auto-redirects Chrome/Safari to original panel with a warning page.\e[0m"
+    echo -e "   \e[90m↳ Serves a beautiful 1-Click Installation Landing Page for Web Browsers.\e[0m"
     
     echo -e "\n\e[31m-------------------------------------------------\e[0m"
     echo -e "\e[31m⚠️ MANUAL DIRECT PORTS (If needed):\e[0m"
@@ -89,6 +89,7 @@ function deploy_services() {
 from flask import Flask, request, Response, make_response, jsonify
 import requests
 import urllib3
+import urllib.parse
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -113,80 +114,129 @@ def copy_headers(upstream_headers, flask_resp):
 def smart_router(path):
     user_agent = request.headers.get('User-Agent', '').lower()
     
-    # 1. Reject Browsers with Modern UI and Dynamic Timer
+    # 1. 1-Click Installation Landing Page for Web Browsers
     if any(b in user_agent for b in ['mozilla', 'chrome', 'safari', 'edge', 'opera', 'applewebkit']):
         qs = request.query_string.decode('utf-8')
+        host = request.headers.get('Host', '')
         
-        # استخراج آی‌پی سرور برای ریدایرکت به پنل
-        host = request.headers.get('Host', '').split(':')[0]
+        # تولید آدرس‌های مورد نیاز برای دکمه‌ها
+        current_url = f"https://{host}/{path}" + (f"?{qs}" if qs else "")
+        encoded_url = urllib.parse.quote(current_url, safe='')
         
-        # پیدا کردن پورت پنل اصلی (مثلا 2020) از متغیر SUB_BASE_URL
+        # تولید آدرس دکمه پنل کاربری پایین صفحه
         try:
             panel_port = SUB_BASE_URL.split(':')[-1].split('/')[0]
-            if not panel_port.isdigit():
-                panel_port = "2020"
-        except:
-            panel_port = "2020"
-            
+            if not panel_port.isdigit(): panel_port = "2020"
+        except: panel_port = "2020"
         panel_scheme = "https" if "https" in SUB_BASE_URL else "http"
+        panel_url = f"{panel_scheme}://{host.split(':')[0]}:{panel_port}/"
         
-        # ساخت لینک نهایی به سمت پنل اصلی
-        redirect_url = f"{panel_scheme}://{host}:{panel_port}/{path}" + (f"?{qs}" if qs else "")
-        
-        html_warning = """
+        html_landing = """
         <!DOCTYPE html>
         <html dir="rtl" lang="fa">
         <head>
             <meta charset="utf-8">
-            <title>هشدار سیستم</title>
+            <title>نصب هوشمند اشتراک</title>
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <meta http-equiv="refresh" content="7;url=__REDIRECT_URL__" />
             <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
             <style>
-                body { font-family: 'Vazirmatn', sans-serif; background-color: #f3f4f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-                .container { background: #ffffff; max-width: 90%; width: 450px; padding: 40px 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; border-top: 6px solid #f59e0b; box-sizing: border-box; }
-                .icon { font-size: 50px; margin-bottom: 10px; }
-                h2 { color: #1f2937; font-size: 21px; margin-bottom: 20px; font-weight: 700; line-height: 1.4; }
-                p { color: #4b5563; font-size: 15px; line-height: 1.7; margin-bottom: 15px; }
-                .alert-box { background-color: #fef2f2; color: #991b1b; padding: 15px; border-radius: 8px; font-size: 14px; margin: 25px 0; border: 1px solid #fca5a5; line-height: 1.6; text-align: right; }
-                .footer-text { color: #6b7280; font-size: 13px; margin-top: 25px; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: bold; }
-                .spinner { width: 16px; height: 16px; border: 2px solid #e5e7eb; border-radius: 50%; border-top-color: #6b7280; animation: spin 1s linear infinite; }
-                @keyframes spin { to { transform: rotate(360deg); } }
-                .timer { color: #dc2626; font-size: 17px; margin: 0 4px; }
+                body { font-family: 'Vazirmatn', sans-serif; background-color: #f4f7f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+                .card { background: #fff; width: 100%; max-width: 420px; border-radius: 20px; box-shadow: 0 12px 30px rgba(0,0,0,0.08); overflow: hidden; border-top: 5px solid #3b82f6; }
+                .header { background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 30px 20px; text-align: center; color: white; }
+                .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
+                .header p { margin: 10px 0 0; font-size: 14px; opacity: 0.9; }
+                .content { padding: 25px 20px; }
+                .section-title { font-size: 15px; color: #4b5563; margin-bottom: 15px; font-weight: 600; text-align: center; }
+                
+                .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 25px; }
+                .app-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15px 10px; border-radius: 14px; text-decoration: none; color: white; font-weight: 600; font-size: 14px; transition: transform 0.2s, box-shadow 0.2s; border: none; cursor: pointer; }
+                .app-btn:active { transform: scale(0.96); }
+                .app-btn span.icon { font-size: 28px; margin-bottom: 8px; }
+                
+                .btn-v2ray { background-color: #10b981; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); }
+                .btn-v2box { background-color: #3b82f6; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
+                .btn-hiddify { background-color: #8b5cf6; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3); }
+                .btn-foxray { background-color: #f59e0b; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
+                
+                .copy-section { background: #f9fafb; border-radius: 12px; padding: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px dashed #d1d5db; margin-bottom: 20px; }
+                .copy-section span { font-size: 12px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-left: 10px; text-align: left; direction: ltr; flex: 1; }
+                .copy-btn { background: #1f2937; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-family: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; font-weight: 600; transition: background 0.2s; }
+                .copy-btn:hover { background: #374151; }
+                
+                .footer { text-align: center; margin-top: 15px; border-top: 1px solid #f3f4f6; padding-top: 15px; }
+                .panel-link { color: #3b82f6; text-decoration: none; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+                
+                /* Toast Notification */
+                .toast { visibility: hidden; min-width: 250px; background-color: #10b981; color: #fff; text-align: center; border-radius: 8px; padding: 12px; position: fixed; z-index: 1; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 14px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); font-weight: bold; }
+                .toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+                @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+                @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
             </style>
         </head>
         <body>
-            <div class="container">
-                <div class="icon">⚠️</div>
-                <h2>این لینک برای باز کردن در مرورگر نیست!</h2>
-                <p>لطفاً لینکی که از ربات یا فروشنده دریافت کرده‌اید را <strong>مستقیماً در اپلیکیشن (نرم‌افزار)</strong> خود کپی و وارد کنید.</p>
-                <div class="alert-box">
-                    <strong>دقت کنید:</strong> صفحه‌ای که تا چند ثانیه دیگر به آن منتقل می‌شوید، کانفیگ اصلی و بهینه‌شده‌ی شما <strong>نیست</strong> و از کیفیت مطلوبی برخوردار نخواهد بود!
+            <div class="card">
+                <div class="header">
+                    <h1>🚀 نصب هوشمند اشتراک</h1>
+                    <p>پروفایل شما آماده است. نرم‌افزار خود را انتخاب کنید.</p>
                 </div>
-                <div class="footer-text">
-                    <span class="spinner"></span>
-                    در حال انتقال به لینک ضعیف‌تر تا <span id="countdown" class="timer">7</span> ثانیه دیگر...
+                <div class="content">
+                    <div class="section-title">نصب سریع با یک کلیک (1-Click)</div>
+                    <div class="btn-grid">
+                        <a href="v2rayng://install-sub?url=__ENCODED_URL__&name=Premium%20Sub" class="app-btn btn-v2ray">
+                            <span class="icon">🤖</span>
+                            v2rayNG
+                        </a>
+                        <a href="v2box://install-sub?url=__ENCODED_URL__&name=Premium%20Sub" class="app-btn btn-v2box">
+                            <span class="icon">🍏</span>
+                            V2Box
+                        </a>
+                        <a href="hiddify://install-sub?url=__ENCODED_URL__&name=Premium%20Sub" class="app-btn btn-hiddify">
+                            <span class="icon">🟣</span>
+                            Hiddify
+                        </a>
+                        <a href="foxray://install-sub?url=__ENCODED_URL__&name=Premium%20Sub" class="app-btn btn-foxray">
+                            <span class="icon">🦊</span>
+                            FoXray
+                        </a>
+                    </div>
+                    
+                    <div class="section-title" style="margin-top: 25px;">یا لینک زیر را کپی کنید</div>
+                    <div class="copy-section">
+                        <span id="subLink">__CURRENT_URL__</span>
+                        <button class="copy-btn" onclick="copyToClipboard()">📋 کپی لینک</button>
+                    </div>
+                    
+                    <div class="footer">
+                        <a href="__PANEL_URL__" class="panel-link">
+                            <span>ورود به پنل کاربری اصلی</span>
+                            <span>➔</span>
+                        </a>
+                    </div>
                 </div>
             </div>
-            
+    
+            <div id="toast" class="toast">✅ لینک با موفقیت کپی شد!</div>
+    
             <script>
-                // اسکریپت شمارش معکوس زنده
-                var timeLeft = 7;
-                var elem = document.getElementById('countdown');
-                var timerId = setInterval(function() {
-                    timeLeft--;
-                    elem.textContent = timeLeft;
-                    if (timeLeft <= 0) {
-                        clearInterval(timerId);
-                        window.location.href = "__REDIRECT_URL__";
-                    }
-                }, 1000);
+                function copyToClipboard() {
+                    var copyText = document.getElementById("subLink").innerText;
+                    navigator.clipboard.writeText(copyText).then(function() {
+                        var toast = document.getElementById("toast");
+                        toast.className = "toast show";
+                        setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+                    });
+                }
             </script>
         </body>
         </html>
         """
-        html_warning = html_warning.replace("__REDIRECT_URL__", redirect_url)
-        return Response(html_warning, content_type='text/html; charset=utf-8')
+        
+        # جایگذاری متغیرهای تولید شده در قالب HTML
+        html_landing = html_landing.replace("__CURRENT_URL__", current_url)
+        html_landing = html_landing.replace("__ENCODED_URL__", encoded_url)
+        html_landing = html_landing.replace("__PANEL_URL__", panel_url)
+        
+        return Response(html_landing, content_type='text/html; charset=utf-8')
 
     target_port = PORT1
     target_path = "/" + path
@@ -210,7 +260,7 @@ def smart_router(path):
             target_port = PORT1
 
     qs = request.query_string.decode('utf-8')
-    internal_url = f"https://127.0.0.1:{target_port}{target_path}" + (f"?{qs}" if qs else "")
+    internal_url = f"http://127.0.0.1:{target_port}{target_path}" + (f"?{qs}" if qs else "")
     
     try:
         client_headers = {k: v for k, v in request.headers if k.lower() != 'host'}
@@ -282,7 +332,7 @@ def process_uri_config(uri):
         b_url, rem = uri.split("#", 1)
         if not any(k in urllib.parse.unquote(rem) for k in TARGET_KEYWORDS): return uri
         hp, qp = b_url.split("?", 1) if "?" in b_url else (b_url, "")
-        params = dict(urllib.parse.parseqsl(qp))
+        params = dict(urllib.parse.parse_qsl(qp))
         params.update({"fp": "unsafe", "cs": CIPHER_SUITES, "fm": json.dumps({"tcp": FINALMASK_TCP}), "allowInsecure": "0", "insecure": "0"})
         new_q = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
         return f"{hp}?{new_q}#{rem}"
@@ -491,6 +541,33 @@ def dyn_json(sub_path):
         flask_resp = jsonify(mod); copy_headers(resp.headers, flask_resp)
         return flask_resp
     except Exception as e: return jsonify({"error": str(e)}), 500
+
+def process_uri_config(uri):
+    if not uri.startswith("vless://"): return uri
+    try:
+        b_url, rem = uri.split("#", 1)
+        if not any(k in urllib.parse.unquote(rem) for k in TARGET_KEYWORDS): return uri
+        hp, qp = b_url.split("?", 1) if "?" in b_url else (b_url, "")
+        params = dict(urllib.parse.parse_qsl(qp))
+        params.update({"fp": "unsafe", "cs": CIPHER_SUITES, "fm": json.dumps({"tcp": FINALMASK_TCP_HYBRID}), "allowInsecure": "0", "insecure": "0"})
+        new_q = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+        return f"{hp}?{new_q}#{rem}"
+    except: return uri
+
+@app.route('/sub/<path:sub_path>')
+def dyn_sub(sub_path):
+    try:
+        qs = request.query_string.decode('utf-8')
+        url = f"{SUB_BASE_URL}/sub/{sub_path}" + (f"?{qs}" if qs else "")
+        resp = requests.get(url, headers=get_client_headers(), verify=False, timeout=10)
+        raw = resp.text.strip(); raw += '=' * (-len(raw) % 4)
+        try: dec = base64.b64decode(raw).decode('utf-8')
+        except: dec = resp.text
+        mod = [process_uri_config(l.strip()) for l in dec.split('\n') if l.strip()]
+        res = make_response(base64.b64encode('\n'.join(mod).encode('utf-8')).decode('utf-8'))
+        res.headers['Content-Type'] = 'text/plain; charset=utf-8'; copy_headers(resp.headers, res)
+        return res
+    except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
     for PORT in $PORT1 $PORT2 $PORT3 $PORT4; do
@@ -503,7 +580,7 @@ After=network-online.target
 [Service]
 User=root
 WorkingDirectory=/opt/sub_server
-ExecStart=/usr/bin/python3 -m gunicorn --workers ${WORKERS} --bind 0.0.0.0:${PORT} --certfile ${CERT_PATH} --keyfile ${KEY_PATH} --timeout 60 ${APP_NAME}:app
+ExecStart=/usr/bin/python3 -m gunicorn --workers ${WORKERS} --bind 0.0.0.0:${PORT} --timeout 60 ${APP_NAME}:app
 Restart=always
 RestartSec=3
 [Install]
