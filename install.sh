@@ -30,9 +30,9 @@ function show_recommendations() {
     echo -e "\e[36m   Port: ${MASTER_PORT} (HTTPS Secure)\e[0m"
     echo -e "   Just give this ONE link to your users:"
     echo -e "   \e[33mhttps://YOUR_SERVER_IP:${MASTER_PORT}/sub/YOUR_PATH\e[0m"
-    echo -e "   \e[90m↳ Auto-routes happ -> Port ${PORT5} (Dedicated Iran Bypass)\e[0m"
-    echo -e "   \e[90m↳ Auto-routes V2box, NPV -> Port ${PORT4} (Universal Fallback)\e[0m"
-    echo -e "   \e[90m↳ Auto-routes PattN / PattNG -> Port ${PORT1} (Path: /sub/ - Base64)\e[0m"
+    echo -e "   \e[90m↳ Auto-routes happ -> Port ${PORT5} (Base64 + Hybrid FM + Panel Headers)\e[0m"
+    echo -e "   \e[90m↳ Auto-routes V2box, NPV -> Port ${PORT4} (Universal Fallback JSON)\e[0m"
+    echo -e "   \e[90m↳ Auto-routes PattN / PattNG -> Port ${PORT1} (Base64 + Standard FM)\e[0m"
     echo -e "   \e[90m↳ Auto-routes v2rayN / v2rayNG -> Port ${PORT1} (Path: /json/)\e[0m"
     echo -e "   \e[90m↳ Auto-redirects Chrome/Safari to original panel with a warning page.\e[0m"
     
@@ -42,7 +42,7 @@ function show_recommendations() {
     echo -e "   \e[33mPort ${PORT2}\e[0m -> SniSpoof Isolated (V2box specific)"
     echo -e "   \e[33mPort ${PORT3}\e[0m -> Strict Fallback (Strict Xray schema)"
     echo -e "   \e[33mPort ${PORT4}\e[0m -> Universal Fallback (Hybrid Engine)"
-    echo -e "   \e[33mPort ${PORT5}\e[0m -> Happ Dedicated (Iran Bypass Routing included)"
+    echo -e "   \e[33mPort ${PORT5}\e[0m -> Happ Dedicated (Base64 with Panel Routing)"
     echo -e "\e[32m=================================================\e[0m\n"
 }
 
@@ -114,7 +114,7 @@ def copy_headers(upstream_headers, flask_resp):
 def smart_router(path):
     user_agent = request.headers.get('User-Agent', '').lower()
     
-    # 1. Reject Browsers with Modern UI and Dynamic Timer
+    # 1. Reject Browsers
     if any(b in user_agent for b in ['mozilla', 'chrome', 'safari', 'edge', 'opera', 'applewebkit']):
         qs = request.query_string.decode('utf-8')
         host = request.headers.get('Host', '').split(':')[0]
@@ -183,13 +183,13 @@ def smart_router(path):
         target_path = target_path.replace('/json/', '/sub/')
         if not target_path.startswith('/sub/'): target_path = '/sub/' + path
 
-    # 3. happ -> PORT5 (Dedicated with Iran Bypass Routing)
+    # 3. happ -> PORT5 (Base64 Mode to keep Panel Headers)
     elif 'happ' in user_agent:
         target_port = PORT5
-        target_path = target_path.replace('/sub/', '/json/')
-        if not target_path.startswith('/json/'): target_path = '/json/' + path
+        target_path = target_path.replace('/json/', '/sub/')
+        if not target_path.startswith('/sub/'): target_path = '/sub/' + path
 
-    # 4. v2box, npv -> PORT4
+    # 4. v2box, npv -> PORT4 (JSON)
     elif 'v2box' in user_agent or 'npv' in user_agent:
         target_port = PORT4
         target_path = target_path.replace('/sub/', '/json/')
@@ -488,7 +488,7 @@ EOF
     # ================== APP 5 (Port 5803 - happ DEDICATED) ==================
     cat << EOF > /opt/sub_server/app_5.py
 from flask import Flask, jsonify, request, make_response
-import requests, copy, urllib3, base64, urllib.parse, json
+import requests, urllib3, base64, urllib.parse, json
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
 SUB_BASE_URL = "${SUB_BASE_URL}"
@@ -508,58 +508,31 @@ def get_client_headers():
     if 'User-Agent' not in h and 'user-agent' not in h: h['User-Agent'] = 'v2rayN/6.42'
     return h
 
-MINIMAL_DNS = {"queryStrategy": "UseIP", "servers": [{"address": "8.8.8.8", "skipFallback": False}], "tag": "dns_out"}
-MINIMAL_INBOUNDS = [{"port": 10808, "protocol": "mixed", "settings": {"auth": "noauth", "udp": True, "userLevel": 8}, "sniffing": {"destOverride": ["http", "tls", "quic", "fakedns"], "enabled": True}, "tag": "mixed"}, {"port": 10809, "protocol": "http", "settings": {"userLevel": 8}, "tag": "http"}]
-
-# রوتینگ اختصاصی برای ایران (بر اساس درخواست شما برای کلاینت happ)
-IRAN_BYPASS_ROUTING = {
-    "domainStrategy": "IPIfNonMatch",
-    "rules": [
-        {"type": "field", "outboundTag": "direct", "domain": ["regexp:.*\\\\.ir$", "geosite:ir", "domain:ir"]},
-        {"type": "field", "outboundTag": "direct", "ip": ["geoip:ir", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]},
-        {"type": "field", "outboundTag": "block", "domain": ["geosite:category-ads-all"]},
-        {"type": "field", "network": "tcp,udp", "outboundTag": "proxy"}
-    ]
-}
-
-def process_cfg(cfg):
-    # کانفیگ‌های تغییر نیافته دست‌نخورده عبور داده می‌شوند
-    if not any(k in cfg.get("remarks", "") for k in TARGET_KEYWORDS): return cfg
-    
-    cfg["dns"] = copy.deepcopy(MINIMAL_DNS); cfg["inbounds"] = copy.deepcopy(MINIMAL_INBOUNDS)
-    
-    # تزریق روتینگ دور زدن ایران به جای روتینگ پیش‌فرض
-    cfg["routing"] = copy.deepcopy(IRAN_BYPASS_ROUTING)
-    
-    for out in cfg.get("outbounds", []):
-        tag = out.get("tag", "")
-        if tag == "proxy" or tag.startswith("bal-"):
-            out["mux"] = {"concurrency": -1, "enabled": False}
-            old = out.get("settings", {})
-            if "address" in old: out["settings"] = {"vnext": [{"address": old.get("address"), "port": old.get("port"), "users": [{"encryption": old.get("encryption", "none"), "flow": old.get("flow", ""), "id": old.get("id"), "level": old.get("level", 8)}]}]}
-            out.pop("sniSpoof", None)
-            st = out.get("streamSettings", {})
-            st["finalmask"] = {"tcp": FINALMASK_TCP_HYBRID}
-            if "tlsSettings" in st:
-                st["tlsSettings"].pop("alpn", None)
-                st["tlsSettings"].update({"cipherSuites": CIPHER_SUITES, "allowInsecure": False, "show": False, "fingerprint": "unsafe"})
-            if "wsSettings" in st:
-                h = st["wsSettings"].pop("host", None); st["wsSettings"].pop("heartbeatPeriod", None)
-                st["wsSettings"]["headers"] = {"Host": h} if h else {}
-            out["streamSettings"] = st
-        elif tag == "direct": out["settings"] = {"domainStrategy": "UseIP"}
-    return cfg
-
-@app.route('/json/<path:sub_path>')
-def dyn_json(sub_path):
+def process_uri_config(uri):
+    if not uri.startswith("vless://"): return uri
     try:
-        qs = request.query_string.decode('utf-8'); sep = "&" if qs else "?"
-        url = f"{SUB_BASE_URL}/json/{sub_path}?{qs}" if "view=raw" in qs else f"{SUB_BASE_URL}/json/{sub_path}?{qs}{sep}view=raw" if qs else f"{SUB_BASE_URL}/json/{sub_path}?view=raw"
+        b_url, rem = uri.split("#", 1)
+        if not any(k in urllib.parse.unquote(rem) for k in TARGET_KEYWORDS): return uri
+        hp, qp = b_url.split("?", 1) if "?" in b_url else (b_url, "")
+        params = dict(urllib.parse.parse_qsl(qp))
+        params.update({"fp": "unsafe", "cs": CIPHER_SUITES, "fm": json.dumps({"tcp": FINALMASK_TCP_HYBRID}), "allowInsecure": "0", "insecure": "0"})
+        new_q = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+        return f"{hp}?{new_q}#{rem}"
+    except: return uri
+
+@app.route('/sub/<path:sub_path>')
+def dyn_sub(sub_path):
+    try:
+        qs = request.query_string.decode('utf-8')
+        url = f"{SUB_BASE_URL}/sub/{sub_path}" + (f"?{qs}" if qs else "")
         resp = requests.get(url, headers=get_client_headers(), verify=False, timeout=10)
-        data = resp.json()
-        mod = [process_cfg(c) for c in data] if isinstance(data, list) else process_cfg(data) if isinstance(data, dict) else data
-        flask_resp = jsonify(mod); copy_headers(resp.headers, flask_resp)
-        return flask_resp
+        raw = resp.text.strip(); raw += '=' * (-len(raw) % 4)
+        try: dec = base64.b64decode(raw).decode('utf-8')
+        except: dec = resp.text
+        mod = [process_uri_config(l.strip()) for l in dec.split('\n') if l.strip()]
+        res = make_response(base64.b64encode('\n'.join(mod).encode('utf-8')).decode('utf-8'))
+        res.headers['Content-Type'] = 'text/plain; charset=utf-8'; copy_headers(resp.headers, res)
+        return res
     except Exception as e: return jsonify({"error": str(e)}), 500
 EOF
 
@@ -726,7 +699,7 @@ function configure_and_install() {
     echo -e "\n\e[32mService 4:\e[0m 🛡️ Universal Fallback (Hybrid Fragment + CipherSuites)"
     read -p "🔗 Enter port for Service 4 [$PORT4]: " input </dev/tty; PORT4=${input:-$PORT4}
 
-    echo -e "\n\e[32mService 5:\e[0m \e[35m👑 happ Dedicated (Iran Bypass Routing included)\e[0m"
+    echo -e "\n\e[32mService 5:\e[0m \e[35m👑 happ Dedicated (Base64 Mode to keep Panel Headers)\e[0m"
     read -p "🔗 Enter port for Service 5 [$PORT5]: " input </dev/tty; PORT5=${input:-$PORT5}
 
     echo -e "\n\e[36m============= PERFORMANCE CONFIGURATION =============\e[0m"
