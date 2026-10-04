@@ -33,7 +33,7 @@ function show_recommendations() {
     echo -e "   \e[90m↳ Auto-routes PattN / PattNG -> Base64 + Standard FM\e[0m"
     echo -e "   \e[90m↳ Auto-routes Flclash / Clash -> YAML + Mihomo Fragment\e[0m"
     echo -e "   \e[90m↳ Auto-routes v2rayN, Happ, V2box, NPV, Incy & ALL OTHERS -> JSON + Hybrid FM\e[0m"
-    echo -e "   \e[90m↳ Serves a Minimalist 1-Click App Installer for Browsers with Live Announcement.\e[0m"
+    echo -e "   \e[90m↳ Serves a Minimalist 1-Click App Installer with Live Announcement.\e[0m"
     
     echo -e "\n\e[33m💡 LEGACY PORTS SUPPORT:\e[0m"
     echo -e "   Ports \e[33m${PORT1}, ${PORT2}, ${PORT3}, ${PORT4}, ${PORT5}\e[0m are natively bound to the Smart Router."
@@ -201,36 +201,36 @@ def smart_router(path):
         if clean_path.startswith('sub/'): clean_path = clean_path[4:]
         elif clean_path.startswith('json/'): clean_path = clean_path[5:]
         
-        # Dynamic Announcement Fetch from 3x-ui (Via happ User-Agent Headers)
+        # Super-Fast Dynamic Info Fetch via single HEAD request!
+        sub_title = "CO VPN"
         announce_text = ""
+        
         try:
-            r_happ = requests.head(f"{SUB_BASE_URL}/sub/{clean_path}", headers={'User-Agent': 'happ'}, timeout=3, verify=False)
-            for h in ['profile-message', 'profile-notice', 'profile-announce', 'x-sub-message', 'subscription-message', 'message']:
-                val = r_happ.headers.get(h)
-                if val:
-                    try: 
-                        val_padded = val + '=' * (-len(val) % 4)
-                        announce_text = base64.b64decode(val_padded).decode('utf-8')
-                    except: 
-                        announce_text = urllib.parse.unquote(val)
-                    break
+            r_stats = requests.head(f"{SUB_BASE_URL}/sub/{clean_path}", headers={'User-Agent': 'happ'}, timeout=3, verify=False)
             
-            # Fallback: Parse from HTML Web Dashboard if headers are empty
-            if not announce_text:
-                r_html = requests.get(f"{SUB_BASE_URL}/sub/{clean_path}", headers={'User-Agent': 'Mozilla/5.0'}, timeout=3, verify=False)
-                if '"announce":' in r_html.text:
-                    m_part = r_html.text.split('"announce":', 1)[1]
-                    if m_part.startswith('"'):
-                        raw_val = m_part[1:].split('"', 1)[0]
-                        try: announce_text = json.loads(f'"{raw_val}"')
-                        except Exception: announce_text = raw_val
-        except Exception: pass
+            # Fetch Title
+            title_hdr = r_stats.headers.get('Profile-Title', '')
+            if title_hdr.startswith('base64:'):
+                try: sub_title = base64.b64decode(title_hdr.split('base64:')[1]).decode('utf-8')
+                except: pass
+            elif title_hdr:
+                sub_title = urllib.parse.unquote(title_hdr)
+                
+            # Fetch Announce
+            ann_hdr = r_stats.headers.get('Announce', '')
+            if ann_hdr.startswith('base64:'):
+                try: announce_text = base64.b64decode(ann_hdr.split('base64:')[1]).decode('utf-8')
+                except: pass
+            elif ann_hdr:
+                announce_text = urllib.parse.unquote(ann_hdr)
+                
+        except: pass
 
         alert_box_html = ""
         if announce_text:
             alert_box_html = f"""
             <div class="alert-box">
-                <span style="font-size: 20px;">ℹ️️</span>
+                <span style="font-size: 20px;">ℹ</span>
                 <div>{announce_text}</div>
             </div>
             """
@@ -241,7 +241,7 @@ def smart_router(path):
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>CO VPN</title>
+            <title>__SUB_TITLE__</title>
             <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css" />
             <script>
                 const getTheme = () => localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -266,7 +266,7 @@ def smart_router(path):
                 .sub-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 24px; }
                 .sub-brand { display: flex; align-items: center; gap: 12px; }
                 .sub-brand-mark { width: 44px; height: 44px; background: linear-gradient(135deg, #a78bfa, #22d3ee); color: #fff; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; }
-                .sub-brand-title { font-size: 20px; font-weight: 700; margin: 0; }
+                .sub-brand-title { font-size: 20px; font-weight: 700; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;}
                 .theme-toggle { background: var(--tile); border: 1px solid var(--border); color: var(--text); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; transition: 0.3s; }
                 .theme-toggle:hover { background: var(--row-hover); color: var(--accent); }
                 .alert-box { background: #2c1618; border: 1px solid #5b2526; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 24px; color: rgba(255,255,255,0.85); text-align: right; direction: rtl;}
@@ -302,7 +302,7 @@ def smart_router(path):
                     <div class="sub-header">
                         <div class="sub-brand">
                             <div class="sub-brand-mark">C</div>
-                            <div class="sub-brand-title">CO VPN</div>
+                            <div class="sub-brand-title">__SUB_TITLE__</div>
                         </div>
                         <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
                     </div>
@@ -435,6 +435,7 @@ def smart_router(path):
         </html>
         """
         
+        html_landing = html_landing.replace("__SUB_TITLE__", sub_title)
         html_landing = html_landing.replace("__ALERT_BOX__", alert_box_html)
         html_landing = html_landing.replace("__CURRENT_URL__", current_url)
         html_landing = html_landing.replace("__ENCODED_URL__", encoded_url)
