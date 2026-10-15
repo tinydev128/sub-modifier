@@ -17,10 +17,20 @@ PORT4="5802"
 PORT5="5803"
 WORKERS="1"
 FM_VERSION="new"
+APP_SUB_PATH="sub"
+APP_JSON_PATH="json"
+PANEL_SUB_PATH="sub"
+PANEL_JSON_PATH="json"
 
 if [ -f "$CONFIG_FILE" ]; then
     source "$CONFIG_FILE"
 fi
+
+# Ensure backward compatibility for older configs
+APP_SUB_PATH=${APP_SUB_PATH:-"sub"}
+APP_JSON_PATH=${APP_JSON_PATH:-"json"}
+PANEL_SUB_PATH=${PANEL_SUB_PATH:-"sub"}
+PANEL_JSON_PATH=${PANEL_JSON_PATH:-"json"}
 
 function show_recommendations() {
     echo -e "\n\e[32m=================================================\e[0m"
@@ -29,7 +39,7 @@ function show_recommendations() {
     echo -e "\n\e[32m🌟 SMART ALL-IN-ONE PORT (Highly Recommended)\e[0m"
     echo -e "\e[36m   Port: ${MASTER_PORT} (HTTPS Secure - Direct Fetch)\e[0m"
     echo -e "   Just give this ONE link to your users:"
-    echo -e "   \e[33mhttps://YOUR_SERVER_IP:${MASTER_PORT}/sub/YOUR_PATH\e[0m"
+    echo -e "   \e[33mhttps://YOUR_SERVER_IP:${MASTER_PORT}/${APP_SUB_PATH}/YOUR_PATH\e[0m"
     echo -e "   \e[90m↳ Auto-routes PattN / PattNG -> Base64 + Standard FM\e[0m"
     echo -e "   \e[90m↳ Auto-routes Flclash / Clash -> YAML + Mihomo Fragment\e[0m"
     echo -e "   \e[90m↳ Auto-routes v2rayN, Happ, V2box, NPV, Incy & ALL OTHERS -> JSON + Hybrid FM\e[0m"
@@ -104,6 +114,10 @@ FINALMASK_TCP = ${FINALMASK_TCP}
 FINALMASK_TCP_HYBRID = ${FINALMASK_TCP_HYBRID}
 
 PORT1 = ${PORT1}
+APP_SUB_PATH = "${APP_SUB_PATH}"
+APP_JSON_PATH = "${APP_JSON_PATH}"
+PANEL_SUB_PATH = "${PANEL_SUB_PATH}"
+PANEL_JSON_PATH = "${PANEL_JSON_PATH}"
 
 HOP_BY_HOP = {'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-encoding', 'content-length', 'server'}
 
@@ -183,6 +197,12 @@ def smart_router(path):
     if 'text/html' in accept_header and not is_vpn_client:
         is_browser = True
 
+    clean_path = path
+    if clean_path.startswith(APP_SUB_PATH + '/'): 
+        clean_path = clean_path[len(APP_SUB_PATH)+1:]
+    elif clean_path.startswith(APP_JSON_PATH + '/'): 
+        clean_path = clean_path[len(APP_JSON_PATH)+1:]
+
     if is_browser:
         host = host_header
         current_url = "https://" + host + "/" + path + ("?" + qs if qs else "")
@@ -197,16 +217,12 @@ def smart_router(path):
         panel_scheme = "https" if "https" in SUB_BASE_URL else "http"
         panel_url = panel_scheme + "://" + host.split(':')[0] + ":" + panel_port + "/"
         
-        clean_path = path
-        if clean_path.startswith('sub/'): clean_path = clean_path[4:]
-        elif clean_path.startswith('json/'): clean_path = clean_path[5:]
-        
         # Super-Fast Dynamic Info Fetch via single HEAD request!
         sub_title = "CO VPN"
         announce_text = ""
         
         try:
-            r_stats = requests.head(f"{SUB_BASE_URL}/sub/{clean_path}", headers={'User-Agent': 'happ'}, timeout=3, verify=False)
+            r_stats = requests.head(f"{SUB_BASE_URL}/{PANEL_SUB_PATH}/{clean_path}", headers={'User-Agent': 'happ'}, timeout=3, verify=False)
             
             # Fetch Title
             title_hdr = r_stats.headers.get('Profile-Title', '')
@@ -461,7 +477,7 @@ def smart_router(path):
     if any(k in user_agent for k in ['patt', 'patn', 'pattn', 'pattng', 'patt-ng', 'patt_ng']) or re.search(r'-p\d+', user_agent):
         target_format = 'base64'
         is_hybrid = False
-    elif host_header.endswith(f":{PORT1}") and not ('json' in path):
+    elif host_header.endswith(f":{PORT1}") and not (APP_JSON_PATH in path):
         target_format = 'base64'
         is_hybrid = False
     elif 'v2ray' in user_agent:
@@ -471,17 +487,13 @@ def smart_router(path):
         target_format = 'yaml'
         is_hybrid = True
 
-    clean_path = path
-    if clean_path.startswith('sub/'): clean_path = clean_path[4:]
-    elif clean_path.startswith('json/'): clean_path = clean_path[5:]
-
     # Log incoming request for live inspection
     try:
         with open('/opt/sub_server/sub_access.log', 'a', encoding='utf-8') as f:
             f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] IP: {request.remote_addr} | Host: {host_header} | Path: {path} | UA: {request.headers.get('User-Agent', '')} | Format: {target_format}\n")
     except Exception: pass
 
-    panel_url = f"{SUB_BASE_URL}/json/{clean_path}" if target_format == 'json' else f"{SUB_BASE_URL}/sub/{clean_path}"
+    panel_url = f"{SUB_BASE_URL}/{PANEL_JSON_PATH}/{clean_path}" if target_format == 'json' else f"{SUB_BASE_URL}/{PANEL_SUB_PATH}/{clean_path}"
     if qs:
         if target_format == 'json' and 'view=raw' not in qs: panel_url += f"?{qs}&view=raw"
         else: panel_url += f"?{qs}"
@@ -681,6 +693,17 @@ function configure_and_install() {
     read -p "Enter SSL Fullchain Path [$CERT_PATH]: " input </dev/tty; CERT_PATH=${input:-$CERT_PATH}
     read -p "Enter SSL Privkey Path [$KEY_PATH]: " input </dev/tty; KEY_PATH=${input:-$KEY_PATH}
 
+    echo -e "\n\e[36m================ PATH CONFIGURATION ================\e[0m"
+    read -p "Enter Panel (3x-ui) Sub Path [$PANEL_SUB_PATH]: " input </dev/tty; PANEL_SUB_PATH=${input:-$PANEL_SUB_PATH}
+    read -p "Enter Panel (3x-ui) JSON Path [$PANEL_JSON_PATH]: " input </dev/tty; PANEL_JSON_PATH=${input:-$PANEL_JSON_PATH}
+    read -p "Enter Router App Sub Path (What users see) [$APP_SUB_PATH]: " input </dev/tty; APP_SUB_PATH=${input:-$APP_SUB_PATH}
+    read -p "Enter Router App JSON Path (What users see) [$APP_JSON_PATH]: " input </dev/tty; APP_JSON_PATH=${input:-$APP_JSON_PATH}
+    
+    PANEL_SUB_PATH=$(echo "$PANEL_SUB_PATH" | sed 's/^\///;s/\/$//')
+    PANEL_JSON_PATH=$(echo "$PANEL_JSON_PATH" | sed 's/^\///;s/\/$//')
+    APP_SUB_PATH=$(echo "$APP_SUB_PATH" | sed 's/^\///;s/\/$//')
+    APP_JSON_PATH=$(echo "$APP_JSON_PATH" | sed 's/^\///;s/\/$//')
+
     echo -e "\n\e[36m================ PORT CONFIGURATION ================\e[0m"
     echo -e "\e[32m🌟 Master Port:\e[0m Smart Auto-Router (Highly Recommended, HTTPS)"
     read -p "🔗 Enter port for Smart Router [$MASTER_PORT]: " input </dev/tty; MASTER_PORT=${input:-$MASTER_PORT}
@@ -716,6 +739,10 @@ PORT4="$PORT4"
 PORT5="$PORT5"
 WORKERS="$WORKERS"
 FM_VERSION="$FM_VERSION"
+APP_SUB_PATH="$APP_SUB_PATH"
+APP_JSON_PATH="$APP_JSON_PATH"
+PANEL_SUB_PATH="$PANEL_SUB_PATH"
+PANEL_JSON_PATH="$PANEL_JSON_PATH"
 EOF
 
     ensure_dependencies
