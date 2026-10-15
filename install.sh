@@ -41,7 +41,7 @@ function show_recommendations() {
     echo -e "   Just give this ONE link to your users:"
     echo -e "   \e[33mhttps://YOUR_SERVER_IP:${MASTER_PORT}/${APP_SUB_PATH}/YOUR_PATH\e[0m"
     echo -e "   \e[90m↳ Auto-routes PattN / PattNG -> Base64 + Standard FM\e[0m"
-    echo -e "   \e[90m↳ Auto-routes Flclash / Clash -> YAML + Mihomo Fragment\e[0m"
+    echo -e "   \e[90m↳ Auto-routes Flclash / Clash -> YAML + Mihomo Fragment \e[33m[Experimental / Beta]\e[90m\e[0m"
     echo -e "   \e[90m↳ Auto-routes v2rayN, Happ, V2box, NPV, Incy & ALL OTHERS -> JSON + Hybrid FM\e[0m"
     echo -e "   \e[90m↳ Serves a Minimalist 1-Click App Installer with Live Announcement.\e[0m"
     
