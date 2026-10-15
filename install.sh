@@ -458,7 +458,7 @@ def smart_router(path):
     is_hybrid = True
 
     # Robust detection for PattN & PattNG
-    if any(k in user_agent for k in ['patt', 'patn', 'pattn', 'pattng', 'patt-ng', 'patt_ng']):
+    if any(k in user_agent for k in ['patt', 'patn', 'pattn', 'pattng', 'patt-ng', 'patt_ng']) or re.search(r'-p\d+', user_agent):
         target_format = 'base64'
         is_hybrid = False
     elif host_header.endswith(f":{PORT1}") and not ('json' in path):
